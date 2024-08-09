@@ -1,6 +1,16 @@
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, Optional, Tuple, TypedDict, TypeVar, Union
+from typing import (
+    TYPE_CHECKING,
+    Callable,
+    List,
+    Optional,
+    Tuple,
+    TypedDict,
+    TypeVar,
+    Union,
+)
 
+import matplotlib
 import numpy as np
 
 from .annotate import Annotation
@@ -152,6 +162,7 @@ class Element:
     style: Optional[PlotStyle] = None
     y_index: int = 0
 
+    annotations: List[Annotation]
     _length: int = 100
 
     def __init__(
@@ -182,6 +193,7 @@ class Element:
         self.height = height
         self.dataset = [Data()]
         self.name = name
+        self.annotations = []
 
     def set(self, **kwargs):
         for key, value in kwargs.items():
@@ -252,6 +264,13 @@ class Element:
         self.dataset[data_index].attach_data(data, x, start, end)
         return self
 
+    def attach_annotation(self: _Elm, annotation: Optional[Annotation]) -> _Elm:
+        if annotation is None:
+            return self
+
+        self.annotations.append(annotation)
+        return self
+
     def predraw(self: _Elm, possible_start: Optional[float] = None) -> _Elm:
         if self.start is None:
             if possible_start is None:
@@ -291,7 +310,10 @@ class Element:
         # y_label: str = ""
         if self.title:
             Annotation.point(
-                (self.start + self.end) / 2, y_offset + self.height / 2, self.title
+                (self.start + self.end) / 2,
+                y_offset + self.height / 2,
+                self.title,
+                text_size=matplotlib.rcParams["legend.fontsize"],
             ).draw(ax)
 
         if self.subtitle:
@@ -300,6 +322,7 @@ class Element:
                 y_offset + self.height,
                 self.subtitle,
                 va="bottom",
+                text_size=matplotlib.rcParams["legend.fontsize"],
             ).draw(ax)
 
         if self.xlabel:
@@ -342,6 +365,10 @@ class Element:
                 .set(height=i / points)
                 .update_style(color=color, alpha=opacity)
             )
+        return self
+
+    def annotation_to(self: _Elm, elm_to: Union[float, "Element"]) -> _Elm:
+
         return self
 
     def copy(self) -> "Element":

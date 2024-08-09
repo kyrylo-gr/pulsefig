@@ -1,6 +1,8 @@
 from copy import deepcopy
 from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
 
+import matplotlib
+
 from .element import Element, PlotStyle
 from .styles import colors
 from .utils import get_start_end_time
@@ -10,7 +12,7 @@ if TYPE_CHECKING:
 _LE = TypeVar("_LE", bound="LineEnsemble")
 _L = TypeVar("_L", bound="Line")
 
-DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 4)  # noqa: E731
+DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 6)  # noqa: E731
 
 
 class Line:
@@ -91,6 +93,7 @@ class Line:
             (time_start - self.text_offset, y_offset),
             ha="left",
             va="bottom",
+            size=matplotlib.rcParams["figure.labelsize"],
         )
         for elm in self.elements:
             elm.draw(
