@@ -62,11 +62,12 @@ plugins:
             merge_init_into_class: true
 
 nav:
+  - Home: index.md
   - Getting Started:
       - Installation: starting_guide/install
       - First steps: starting_guide/first_steps
-  - Different instruments: instruments/
-  - Developer Guide: develop/
+      - Examples: examples
+
   - Releases: releases/
   - About: about/
 
@@ -74,3 +75,4 @@ markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
+  - attr_list

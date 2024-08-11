@@ -36,7 +36,7 @@ class PlotStyle(TypedDict, total=False):
     zorder: int
 
 
-class Data:
+class FillData:
     height: int = 1
     height_points: np.ndarray
     x: np.ndarray
@@ -105,8 +105,8 @@ class Data:
 
         return self
 
-    def copy(self) -> "Data":
-        new_data = Data(self.height, self.x)
+    def copy(self) -> "FillData":
+        new_data = FillData(self.height, self.x)
         new_data.height_points = self.height_points.copy()
         new_data.style = self.style.copy() if self.style is not None else None
         return new_data
@@ -191,7 +191,7 @@ class Element:
         self.end = end
 
         self.height = height
-        self.dataset = [Data()]
+        self.dataset = [FillData()]
         self.name = name
         self.annotations = []
 
@@ -251,13 +251,13 @@ class Element:
 
     def attach_data(
         self: _Elm,
-        data: np.ndarray | Data,
+        data: np.ndarray | FillData,
         x: Optional[np.ndarray] = None,
         start: float = 0,
         end: float = 1,
         data_index: Optional[int] = None,
     ) -> _Elm:
-        if isinstance(data, Data):
+        if isinstance(data, FillData):
             self.dataset.append(data)
             return self
         data_index = self._check_data_index(data_index)

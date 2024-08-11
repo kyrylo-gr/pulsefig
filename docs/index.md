@@ -1,7 +1,7 @@
-# pulsefig. Try to make Matplotlib great again.
+# `pulsefig`: Draw Your Pulse Sequences
 
 <h1 align="center">
-<img src="images/pulsefig-logo.png" width="400">
+<img src="docs/images/pulsefig-logo.png" width="400">
 </h1><br>
 
 [![Pypi](https://img.shields.io/pypi/v/pulsefig.svg)](https://pypi.org/project/pulsefig/)
@@ -13,92 +13,142 @@
 [![Download Stats](https://img.shields.io/pypi/dm/pulsefig)](https://pypistats.org/packages/pulsefig)
 [![Documentation](https://img.shields.io/badge/docs-blue)](https://kyrylo-gr.github.io/pulsefig/)
 
-`pulsefig` - is a wrapper around Matplotlib that reduces the code required for plotting.
+`pulsefig` is a Python library designed for easy and intuitive drawing of pulse sequences, commonly used in quantum computing, nuclear magnetic resonance (NMR), and other fields that involve waveform manipulation. The library simplifies the process of visualizing pulse sequences by providing flexible and powerful tools to define, customize, and plot these sequences.
 
-## Motivation
+## Installation
 
-pulsefig is a wrapper around Matplotlib that reduces the code required for plotting. It makes the code shorter and more pleasant, while still maintaining generality.
+You can install `pulsefig` via pip:
 
-Currently plotting with matplotlib is a nightmare. Normally there are so many line to plot a simple plot. Take as an example your code for plotting on grid 2x2 and count how make duplication information you have. So this library is a way how to write less to have the same plots. It’s a wrapper around Matplotlib and therefore you still have all function from it, so don’t worry to not have some functionality. But the main changes are the following:
+```bash
+pip install pulsefig
+```
 
-- Every plot or set method on axes return the axes itself. Which allows your to stack command and
-- You can create the list of the axes and do manipulations on a list. Like setting labels or plotting some data, which reduce by a lot the repeating information.
-- As usual it’s typed as well as original matplotlib, there for you have hints to allow you very smooth manipulation.
+For more detailed installation instructions, please refer to the [How to install](starting_guide/install.md) guide.
 
-Here's a simple example demonstrating how this package can significantly reduce the number of lines in your code. In this example, it went from 13 to 5 lines, remained perfectly readable and potentially prettier.
+## Quick Start
 
-Matplotlib code:
+### Basic Usage
+
+Here is a simple example to get you started with `pulsefig`:
 
 ```python
+
+from pulsefig import Element, Line, LineEnsemble
+import numpy as np
 import matplotlib.pyplot as plt
 
-fig, axes = plt.subplots(2, 2)
-x = np.linspace(0, 2 * np.pi, 100)
-z = np.sin(x) + 1j * np.cos(x)
 
-axes[0][0].plot(x, np.real(z))
-axes[0][0].set_ylabel("Real")
-axes[1][0].plot(x, np.imag(z))
-axes[1][0].set_ylabel("Imag")
-axes[0][1].plot(x, np.abs(z))
-axes[0][1].set_ylabel("Amp")
-axes[1][1].plot(x, np.unwrap(np.angle(z)))
-axes[1][1].set_ylabel("Phase")
-for axes_row in axes:
-    for ax in axes_row:
-        ax.set(xlabel="Time (s)")
-fig.suptitle("Complex Signal")
-fig.tight_layout()
+# Define a line with elements attached
+line1 = Line("line1").attach_elements(
+    Element(0, 1),
+    Element(2, 4)
+)
+
+# Define another line
+line2 = Line("line2").attach_elements(
+    Element(0, 2)
+    Element(duration=4, delay=1)
+)
+
+# Create a figure and axis
+fig, ax = plt.subplots(1, 1)
+
+# Combine the lines into an ensemble and draw
+(line1 + line2).draw(ax).config_ax(ax1)
+
+plt.show()
 ```
 
-pulsefig compact code
+This code will generate a plot of two pulse sequences defined by the `line1` and `line2` objects. You can customize each element, its functions, and styling to create complex and detailed pulse sequence diagrams.
+
+### Advanced Example
+
+In the following example, we create a more complex pulse sequence involving multiple lines, Gaussian pulses, and exponential filters:
 
 ```python
-import pulsefig as ap
-x = np.linspace(0, 2 * np.pi, 100)
-z = np.sin(x) + 1j * np.cos(x)
-
-axes = (
-    ap.axs(2, 2)
-    .plot(x, [[np.real(z), np.abs(z)], [np.imag(z), np.unwrap(np.angle(z))]])
-    .suptitle("Complex Signal")
-    .set(xlabel="Time (s)", ylabel=[["Real", "Abs"], ["Imag", "Phase"]])
-    .tight_layout()
+reset_line = Line("reset").attach_elements(Element(0, 5).set(xlabel="10μs"))
+flux_line = Line("flux").attach_elements(
+    flux_rise := Element.ExpFilter(0, 3.75, duration=0.2)
+    .set(ylabel="Δᵩ")
+    .update_style(alpha=0.3, data_index=0)
+    .sweep_height(start_alpha=0.1)
 )
+
+drive_line  = Line("drive").attach_elements(
+    drive_pi := Element.Gaussian(flux_rise, duration=1).set(subtitle="π")
+)
+readout_line = Line("readout").attach_elements(Element(drive_pi, duration=1, delay=0.5))
+
+# Combine all lines into an ensemble
+ens = drive_line  + readout_line + flux_line + reset_line
+
+# Plotting the ensemble
+fig, ax1 = plt.subplots(1, 1, figsize=(6, 4))
+ens.draw(ax1).config_ax(ax1)
+fig.suptitle("Pulse Sequence Example")
+plt.show()
 ```
 
-You can also access the axes as usual.
+In this advanced example:
+
+- **Reset Line**: Represents a reset pulse with a duration of 5 units.
+- **Flux Line**: Shows an exponential filter rising over time.
+- **Drive Line**: Contains a Gaussian pulse corresponding to a π rotation.
+- **Readout Line**: Follows the Gaussian pulse and includes a delay.
+
+This sequence is typical in many quantum computing scenarios, where different pulse shapes and sequences are used to manipulate qubits.
+
+### Custom pulses
+
+You can create a completely custom shapes with `pulsefig`:
 
 ```python
-axes = (
-    ap.axs(2, 2)
-    .suptitle("Complex Signal")
-    .set(xlabel="Time (s)", ylabel=[["Real", "Abs"], ["Imag", "Phase"]])
-    .tight_layout()
+from pulsefig import Element, Line, LineEnsemble
+import numpy as np
+import matplotlib.pyplot as plt
+
+# Create a figure and axis
+fig, ax = plt.subplots(1, 1)
+ax.axis("off")
+
+# Define a line with elements attached
+line1 = Line("drive").attach_elements(
+    Element(0, 1)
+    .attach_func(lambda x: np.sin(x * 2 * np.pi), end=0.25)
+    .attach_func(lambda x: np.exp(-((x - 0.5) ** 2) / 0.05), start=0.5, end=1)
+    .update_style(alpha=0.3, data_index=0)
+    .sweep_height(start_alpha=0.1)
+    .set(subtitle="pi", xlabel="dt"),
+    Element(2, 4)
+    .attach_func(lambda x: np.sin(x * 2 * np.pi), end=0.25)
+    .attach_func(lambda x: np.exp(-((x - 0.5) ** 2) / 0.05), start=0.5, end=1)
+    .update_style(alpha=0.3, data_index=0)
+    .sweep_height(start_alpha=0.1),
 )
-axes[0].plot(x, [np.real(z), np.abs(z)])
-axes[1][0].plot(x, np.imag(z))
-axes[1][1].plot(x, np.unwrap(np.angle(z)))
+
+# Define another line
+line2 = Line("g_h").attach_elements(
+    Element(0, 2)
+    .set(alpha=0.3, marker="0", subtitle="pi", xlabel="dt", ylabel="amp")
+    .attach_func(lambda x: np.sin(x * 2 * np.pi), end=0.25)
+    .attach_func(lambda x: np.exp(-((x - 0.5) ** 2) / 0.05), start=0.5, end=1)
+    .update_style(alpha=0.3, data_index=0)
+    .sweep_height(start_alpha=0.1),
+    Element(duration=4, delay=1)
+    .attach_func(lambda x: np.sin(x * 2 * np.pi), end=0.25)
+    .attach_func(lambda x: np.exp(-((x - 0.5) ** 2) / 0.05), start=0.5, end=1)
+    .update_style(alpha=0.3, data_index=0)
+    .sweep_height(start_alpha=0.1),
+)
+
+# Combine the lines into an ensemble and draw
+(line1 + line2).draw(ax)
 ```
 
-You can use `autoaxis` method to let is name the axis for your draft plots
-
-```python
-axes = (
-    ap.axs(2, 2)
-    .plot(x, [[np.real(z), np.abs(z)], [np.imag(z), np.unwrap(np.angle(z))]])
-    .suptitle("Complex Signal")
-    .autoaxis()
-    .tight_layout()
-)
-```
-
-## Install
-
-`pip install pulsefig`
-
-For more installation details, please refer to the [How to install](starting_guide/install.md)
-
-## How to use
+This code will generate a plot of two pulse sequences defined by the `line1` and `line2` objects. You can customize each element, its functions, and styling to create complex and detailed pulse sequence diagrams.
 
 For further insight, please refer to the [First Steps guide](starting_guide/first_steps.md)
+
+---
+
+Feel free to explore the examples, customize the sequences, and integrate `pulsefig` into your projects for pulse sequence visualization!
