@@ -65,8 +65,8 @@ nav:
   - Getting Started:
       - Installation: starting_guide/install
       - First steps: starting_guide/first_steps
-  - Different instruments: instruments/
-  - Developer Guide: develop/
+      - Examples: starting_guide/examples
+
   - Releases: releases/
   - About: about/
 
@@ -74,3 +74,4 @@ markdown_extensions:
   - admonition
   - pymdownx.details
   - pymdownx.superfences
+  - attr_list
