@@ -62,10 +62,11 @@ plugins:
             merge_init_into_class: true
 
 nav:
+  - Home: index.md
   - Getting Started:
       - Installation: starting_guide/install
       - First steps: starting_guide/first_steps
-      - Examples: starting_guide/examples
+      - Examples: examples
 
   - Releases: releases/
   - About: about/
