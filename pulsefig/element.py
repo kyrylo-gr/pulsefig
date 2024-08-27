@@ -252,7 +252,7 @@ class Element:
 
     def attach_data(
         self: _Elm,
-        data: np.ndarray | FillData,
+        data: Union[np.ndarray, FillData],
         x: Optional[np.ndarray] = None,
         start: float = 0,
         end: float = 1,
