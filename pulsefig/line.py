@@ -47,10 +47,12 @@ class Line:
             setattr(self, key, value)
         return self
 
-    def predraw(self: _L) -> _L:
+    def predraw(self: _L, y_offset: Optional[float] = None) -> _L:
+        if y_offset is not None:
+            self.y_offset = y_offset
         last_end = 0
         for elm in self.elements:
-            elm.predraw(possible_start=last_end)
+            elm.predraw(possible_start=last_end, y_offset=y_offset)
             last_end = elm.end if elm.end is not None else last_end
 
         self._time_start, self._time_end = get_start_end_time(self)
@@ -62,7 +64,7 @@ class Line:
         ax: "Axes",
         *,
         style: Optional[PlotStyle] = None,
-        y_offset: float = 0.0,
+        y_offset: Optional[float] = None,
         y_index: int = 0,
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
@@ -70,11 +72,12 @@ class Line:
         full_style = self.style or {}
         full_style.update(style or {})
 
-        self.y_offset = y_offset
+        if y_offset is not None:
+            self.y_offset = y_offset
         self.y_index = y_index
 
         if time_start is None or time_end is None:
-            self.predraw()
+            self.predraw(y_offset=self.y_offset)
             if self._time_start is None or self._time_end is None:
                 raise ValueError(
                     "Start or end time is None. Provide it or call predraw"
@@ -86,11 +89,13 @@ class Line:
             "color", colors[y_index % len(colors)]
         )
         ax.plot(
-            [time_start - self.text_offset, time_end], [y_offset] * 2, color=line_color
+            [time_start - self.text_offset, time_end],
+            [self.y_offset] * 2,
+            color=line_color,
         )
         ax.annotate(
             self.name,
-            (time_start - self.text_offset, y_offset),
+            (time_start - self.text_offset, self.y_offset),
             ha="left",
             va="bottom",
             size=matplotlib.rcParams["figure.labelsize"],
@@ -99,7 +104,6 @@ class Line:
             elm.draw(
                 ax,
                 style=self.style,
-                y_offset=y_offset,
                 y_index=y_index,
             )
 
@@ -160,8 +164,9 @@ class LineEnsemble:
         return self
 
     def predraw(self: _LE) -> _LE:
-        for line in self.lines:
-            line.predraw()
+        for i, line in enumerate(self.lines):
+            y_offset = (len(self.lines) - i - 1) * 1.5
+            line.predraw(y_offset=y_offset)
         self._time_start, self._time_end = get_start_end_time(self)
         return self
 
@@ -188,11 +193,10 @@ class LineEnsemble:
         time_end += time_duration * 0.05
 
         for i, line in enumerate(self.lines):
-            y_offset = (len(self.lines) - i - 1) * 1.5
+            # y_offset = (len(self.lines) - i - 1) * 1.5
             line.draw(
                 ax,
                 style=style,
-                y_offset=y_offset,
                 y_index=i,
                 time_start=time_start,
                 time_end=time_end,

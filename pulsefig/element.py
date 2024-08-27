@@ -15,12 +15,13 @@ import numpy as np
 
 from .annotate import Annotation
 from .styles import colors
+from .variables import UnsetParameter
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 _Elm = TypeVar("_Elm", bound="Element")
-_Data = TypeVar("_Data", bound="Data")
+_Data = TypeVar("_Data", bound="FillData")
 
 
 class PlotStyle(TypedDict, total=False):
@@ -147,9 +148,9 @@ class FillData:
 
 
 class Element:
-    start: Optional[float]
-    end: Optional[float]
-    duration: Optional[float]
+    start: Optional[float] = UnsetParameter()  # type: ignore
+    end: Optional[float] = UnsetParameter()  # type: ignore
+    duration: Optional[float] = UnsetParameter()  # type: ignore
     delay: float = 0
     height: float = 1
 
@@ -158,7 +159,7 @@ class Element:
     xlabel: str = ""
     ylabel: str = ""
 
-    y_offset: float = 0
+    y_offset: float = UnsetParameter()  # type: ignore
     style: Optional[PlotStyle] = None
     y_index: int = 0
 
@@ -271,7 +272,13 @@ class Element:
         self.annotations.append(annotation)
         return self
 
-    def predraw(self: _Elm, possible_start: Optional[float] = None) -> _Elm:
+    def predraw(
+        self: _Elm,
+        possible_start: Optional[float] = None,
+        y_offset: Optional[float] = None,
+    ) -> _Elm:
+        if y_offset is not None:
+            self.y_offset = y_offset
         if self.start is None:
             if possible_start is None:
                 raise ValueError("Start time must be specified")
@@ -289,29 +296,29 @@ class Element:
         ax: "Axes",
         *,
         style: Optional[PlotStyle] = None,
-        y_offset: float = 0.0,
+        y_offset: Optional[float] = None,
         y_index: int = 0,
     ) -> _Elm:
         if self.start is None or self.end is None:
             raise ValueError(
                 "Start or end time is None. Cannot draw element. Call predraw() first"
             )
-
-        self.y_offset = y_offset
+        if y_offset is not None:
+            self.y_offset = y_offset
         self.y_index = y_index
 
         style = self._get_style(style)
 
         for data in self.dataset:
-            data.draw(ax, self.start, self.end, y_offset, style)
+            data.draw(ax, self.start, self.end, self.y_offset, style)
 
-        # subtitle: str = ""
-        # x_label: str = ""
-        # y_label: str = ""
+        for annotation in self.annotations:
+            annotation.draw(ax)
+
         if self.title:
             Annotation.point(
                 (self.start + self.end) / 2,
-                y_offset + self.height / 2,
+                self.y_offset + self.height / 2,
                 self.title,
                 text_size=matplotlib.rcParams["legend.fontsize"],
             ).draw(ax)
@@ -319,7 +326,7 @@ class Element:
         if self.subtitle:
             Annotation.point(
                 (self.start + self.end) / 2,
-                y_offset + self.height,
+                self.y_offset + self.height,
                 self.subtitle,
                 va="bottom",
                 text_size=matplotlib.rcParams["legend.fontsize"],
@@ -327,20 +334,24 @@ class Element:
 
         if self.xlabel:
             xcoord = (
-                (self.start, self.end, y_offset + self.height / 3)
+                (self.start, self.end, self.y_offset + self.height / 3)
                 if self.ylabel
-                else (self.start, self.end, y_offset + self.height / 3)
+                else (self.start, self.end, self.y_offset + self.height / 3)
             )
             Annotation.horizontal(*xcoord, text=self.xlabel).draw(ax)
         if self.ylabel:
             ycoord = (
                 (
-                    y_offset,
-                    y_offset + self.height,
+                    self.y_offset,
+                    self.y_offset + self.height,
                     self.start + (self.end - self.start) * 2 / 3,
                 )
                 if self.xlabel
-                else (y_offset, y_offset + self.height, (self.start + self.end) / 2)
+                else (
+                    self.y_offset,
+                    self.y_offset + self.height,
+                    (self.start + self.end) / 2,
+                )
             )
             Annotation.vertical(*ycoord, self.ylabel).draw(ax)
 
@@ -367,7 +378,32 @@ class Element:
             )
         return self
 
-    def annotation_to(self: _Elm, elm_to: Union[float, "Element"]) -> _Elm:
+    def annotation_to(
+        self: _Elm,
+        elm_to: "Element",
+        text: str,
+        x_start: Optional[float] = None,
+        x_end: Optional[float] = None,
+        y1: Optional[float] = None,
+        y2: Optional[float] = None,
+    ) -> _Elm:
+
+        y2 = elm_to.y_offset * (self.y_offset > elm_to.y_offset) + elm_to.y_offset * (
+            self.y_offset <= elm_to.y_offset
+        )
+        y1 = (self.y_offset > elm_to.y_offset) * self.height * 0.6 + self.y_offset
+        assert self.start is not None
+        assert self.end is not None
+        assert elm_to.start is not None
+        assert elm_to.end is not None
+
+        x_start = self.end if self.end < elm_to.start else self.start
+        x_end = elm_to.start if self.end < elm_to.start else elm_to.end
+
+        self.attach_annotation(Annotation.line(x_end, y1, x_end, y2, color="k"))
+        self.attach_annotation(
+            Annotation.horizontal(start=x_start, end=x_end, y=y1, text=text)
+        )
 
         return self
 
