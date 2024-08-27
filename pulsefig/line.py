@@ -17,7 +17,7 @@ DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 6)  # noqa: E731
 
 class Line:
     name: str
-    elements: list[Element]
+    elements: List[Element]
     line_color: Optional[str] = None
     style: Optional[PlotStyle] = None
     y_offset: float = 0.0
@@ -136,12 +136,12 @@ class Line:
 
 
 class LineEnsemble:
-    lines: list[Line]
+    lines: List[Line]
     style: Optional[PlotStyle] = None
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
 
-    def __init__(self, *, lines: list[Line], style: Optional[PlotStyle] = None):
+    def __init__(self, *, lines: List[Line], style: Optional[PlotStyle] = None):
         self.lines = lines
         self.style = style
 
