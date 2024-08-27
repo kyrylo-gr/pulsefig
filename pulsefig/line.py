@@ -219,7 +219,7 @@ class LineEnsemble:
             ys = ylim[1] - ylim[0]
 
             if callable(aspect):
-                print(f"set aspect to {aspect(len(self.lines))}")
+                # print(f"set aspect to {aspect(len(self.lines))}")
                 ax.set_aspect(aspect(len(self.lines)) / (ys / xs))
             else:
                 ax.set_aspect(aspect / (ys / xs))

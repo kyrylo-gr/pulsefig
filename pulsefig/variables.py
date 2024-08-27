@@ -1,5 +1,5 @@
 import types
-from typing import Callable
+from typing import Callable, Optional
 
 
 def get_value(obj):
@@ -40,10 +40,10 @@ class AttrLink:
 
 
 class FloatProxy(float):
-    def __new__(cls, link: AttrLink, post_func: Callable | None = None):
+    def __new__(cls, link: AttrLink, post_func: Optional[Callable] = None):
         return super().__new__(cls, 0)
 
-    def __init__(self, link: AttrLink, post_func: Callable | None = None):
+    def __init__(self, link: AttrLink, post_func: Optional[Callable] = None):
         self.link = link
         self.post_func = post_func if post_func is not None else (lambda v: v)
 

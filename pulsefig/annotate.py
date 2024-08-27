@@ -86,12 +86,6 @@ class Annotation:
         if self.color:
             kwargs.setdefault("color", self.color)
 
-        # print("======")
-        # print(float(self.y0))
-        # print(float(self.x1))
-        # print(self.y0.value)
-        # print(float(self.y1.value))
-
         if self.orientation != "point":
             ax.annotate(
                 "",
@@ -102,10 +96,6 @@ class Annotation:
                 **kwargs,
             )
         if self.text:
-            print(self.text, self.x0, self.x1)
-            print(self.y0)
-            print(self.y1)
-            print((float(self.y0 + self.y1)))
             text_kwargs = text_kwargs or {}
             if self.text_size:
                 text_kwargs["size"] = self.text_size
