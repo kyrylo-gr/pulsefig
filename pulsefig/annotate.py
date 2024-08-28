@@ -16,6 +16,7 @@ class Annotation:
     va: str = "bottom"
 
     text_size: _TEXT_SIZE_TYPE = None
+    group: Optional[str] = None
 
     def __init__(
         self,
@@ -28,6 +29,8 @@ class Annotation:
         va: str = "bottom",
         ha: str = "center",
         text_size: _TEXT_SIZE_TYPE = None,
+        arrowstyle: str = "<->",
+        color: Optional[str] = None,
     ) -> None:
         if y0 is not None and y1 is None:
             y1 = y0
@@ -46,7 +49,10 @@ class Annotation:
         self.va = va
         self.ha = ha
 
+        self.arrowstyle = arrowstyle
+
         self.text_size = text_size
+        self.color = color
 
     @property
     def orientation(self) -> Literal["vertical", "horizontal", "diagonal", "point"]:
@@ -77,6 +83,10 @@ class Annotation:
             raise ValueError("Diagonal orientation does not have an end point")
 
     def draw(self, ax: "Axes", text_kwargs: Optional[dict] = None, **kwargs):
+        kwargs.setdefault("arrowprops", {"arrowstyle": self.arrowstyle})
+        if self.color:
+            kwargs.setdefault("color", self.color)
+
         if self.orientation != "point":
             ax.annotate(
                 "",
@@ -84,7 +94,7 @@ class Annotation:
                 xycoords="data",
                 xytext=(self.x1, self.y1),
                 textcoords="data",
-                arrowprops=dict(arrowstyle="<->"),
+                **kwargs,
             )
         if self.text:
             text_kwargs = text_kwargs or {}
@@ -93,7 +103,7 @@ class Annotation:
 
             ax.annotate(
                 self.text,
-                ((self.x0 + self.x1) / 2, (self.y0 + self.y1) / 2),
+                ((float(self.x0 + self.x1)) / 2, (float(self.y0 + self.y1)) / 2),
                 ha=self.ha,
                 va=self.va,
                 **text_kwargs,
@@ -144,3 +154,7 @@ class Annotation:
         text_size: _TEXT_SIZE_TYPE = None,
     ):
         return cls(x0=x, x1=x, y0=y, y1=y, text=text, ha=ha, va=va, text_size=text_size)
+
+    @classmethod
+    def line(cls, x0: float, y0: float, x1: float, y1: float, **kwargs):
+        return cls(x0=x0, x1=x1, y0=y0, y1=y1, arrowstyle="-", **kwargs)
