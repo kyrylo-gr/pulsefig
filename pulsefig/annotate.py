@@ -16,6 +16,7 @@ class Annotation:
     va: str = "bottom"
 
     text_size: _TEXT_SIZE_TYPE = None
+    group: Optional[str] = None
 
     def __init__(
         self,

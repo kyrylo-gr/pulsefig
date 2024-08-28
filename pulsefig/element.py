@@ -114,7 +114,10 @@ class FillData:
 
     def set(self, **kwargs):
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            if hasattr(self, f"set_{key}"):
+                getattr(self, f"set_{key}")(value)
+            else:
+                setattr(self, key, value)
         return self
 
     def update_style(self: _Data, **kwargs) -> _Data:
@@ -148,8 +151,8 @@ class FillData:
 
 
 class Element:
-    start: Optional[float] = UnsetParameter()  # type: ignore
-    end: Optional[float] = UnsetParameter()  # type: ignore
+    start: float = UnsetParameter()  # type: ignore
+    end: float = UnsetParameter()  # type: ignore
     duration: Optional[float] = UnsetParameter()  # type: ignore
     delay: float = 0
     height: float = 1
@@ -181,7 +184,7 @@ class Element:
         if isinstance(start, Element):
             start = start.end
 
-        self.start = start
+        self.start = start  # type: ignore
         self.delay = delay
 
         if end is None:
@@ -189,7 +192,7 @@ class Element:
                 raise ValueError("End time or duration must be specified")
             self.duration = duration
             end = self.start + duration if self.start is not None else None
-        self.end = end
+        self.end = end  # type: ignore
 
         self.height = height
         self.dataset = [FillData()]
@@ -198,7 +201,10 @@ class Element:
 
     def set(self, **kwargs):
         for key, value in kwargs.items():
-            setattr(self, key, value)
+            if hasattr(self, f"set_{key}"):
+                getattr(self, f"set_{key}")(value)
+            else:
+                setattr(self, key, value)
         return self
 
     def _check_data_index(self, data_index: Optional[int]) -> int:
@@ -265,11 +271,17 @@ class Element:
         self.dataset[data_index].attach_data(data, x, start, end)
         return self
 
-    def attach_annotation(self: _Elm, annotation: Optional[Annotation]) -> _Elm:
-        if annotation is None:
-            return self
+    def attach_annotations(
+        self: _Elm, *annotation: Annotation, group: Optional[str] = None
+    ) -> _Elm:
+        if group is not None:
+            for a in annotation:
+                a.group = group
+        self.annotations.extend(annotation)
+        return self
 
-        self.annotations.append(annotation)
+    def del_annotation_group(self: _Elm, group: Optional[str]) -> _Elm:
+        self.annotations = [a for a in self.annotations if a.group != group]
         return self
 
     def predraw(
@@ -314,46 +326,6 @@ class Element:
 
         for annotation in self.annotations:
             annotation.draw(ax)
-
-        if self.title:
-            Annotation.point(
-                (self.start + self.end) / 2,
-                self.y_offset + self.height / 2,
-                self.title,
-                text_size=matplotlib.rcParams["legend.fontsize"],
-            ).draw(ax)
-
-        if self.subtitle:
-            Annotation.point(
-                (self.start + self.end) / 2,
-                self.y_offset + self.height,
-                self.subtitle,
-                va="bottom",
-                text_size=matplotlib.rcParams["legend.fontsize"],
-            ).draw(ax)
-
-        if self.xlabel:
-            xcoord = (
-                (self.start, self.end, self.y_offset + self.height / 3)
-                if self.ylabel
-                else (self.start, self.end, self.y_offset + self.height / 3)
-            )
-            Annotation.horizontal(*xcoord, text=self.xlabel).draw(ax)
-        if self.ylabel:
-            ycoord = (
-                (
-                    self.y_offset,
-                    self.y_offset + self.height,
-                    self.start + (self.end - self.start) * 2 / 3,
-                )
-                if self.xlabel
-                else (
-                    self.y_offset,
-                    self.y_offset + self.height,
-                    (self.start + self.end) / 2,
-                )
-            )
-            Annotation.vertical(*ycoord, self.ylabel).draw(ax)
 
         return self
 
@@ -400,12 +372,102 @@ class Element:
         x_start = self.end if self.end < elm_to.start else self.start
         x_end = elm_to.start if self.end < elm_to.start else elm_to.end
 
-        self.attach_annotation(Annotation.line(x_end, y1, x_end, y2, color="k"))
-        self.attach_annotation(
-            Annotation.horizontal(start=x_start, end=x_end, y=y1, text=text)
+        self.attach_annotations(
+            Annotation.line(x_end, y1, x_end, y2, color="k"),
+            Annotation.horizontal(start=x_start, end=x_end, y=y1, text=text),
         )
 
         return self
+
+    def set_ylabel(
+        self: _Elm,
+        text: str,
+        xpos: float = 0.5,
+        ypos: float = 0.5,
+        ha: str = "left",
+        _group: str = "ylabel",
+    ) -> _Elm:
+        self.del_annotation_group(_group)
+        coord_line = (
+            self.y_offset,
+            self.y_offset + self.height,
+            self.start + (self.end - self.start) * xpos,
+        )
+        coord_text = (
+            self.start + (self.end - self.start) * xpos,
+            self.y_offset + self.height * ypos,
+        )
+        self.attach_annotations(
+            Annotation.vertical(*coord_line),
+            Annotation.point(*coord_text, text, ha=ha),
+            group=_group,
+        )
+        return self
+
+    def set_xlabel(
+        self: _Elm,
+        text: str,
+        xpos: float = 0.5,
+        ypos: float = 0.33,
+        va: str = "bottom",
+        _group: str = "xlabel",
+    ) -> _Elm:
+        self.del_annotation_group(_group)
+
+        coord = (self.start, self.end, self.y_offset + self.height * ypos)
+
+        coord_text = (
+            self.start + (self.end - self.start) * xpos,
+            self.y_offset + self.height * ypos,
+        )
+
+        self.attach_annotations(
+            Annotation.horizontal(*coord),
+            Annotation.point(*coord_text, text, va=va),
+            group=_group,
+        )
+        return self
+
+    def set_title(
+        self: _Elm,
+        text: str,
+        xpos: float = 0.5,
+        ypos: float = 0.5,
+        va: str = "bottom",
+        text_size: Optional[float] = None,
+        _group: str = "title",
+    ) -> _Elm:
+        self.del_annotation_group(_group)
+        if text_size is None:
+            text_size = matplotlib.rcParams["legend.fontsize"]
+        self.attach_annotations(
+            Annotation.point(
+                self.start + (self.end - self.start) * xpos,
+                self.y_offset + self.height * ypos,
+                text,
+                va=va,
+                text_size=text_size,
+            ),
+            group=_group,
+        )
+        return self
+
+    def set_subtitle(
+        self: _Elm,
+        text: str,
+        xpos: float = 0.5,
+        ypos: float = 1,
+        va: str = "bottom",
+        text_size: Optional[float] = None,
+    ) -> _Elm:
+        return self.set_title(
+            text=text,
+            xpos=xpos,
+            ypos=ypos,
+            va=va,
+            text_size=text_size,
+            _group="subtitle",
+        )
 
     def copy(self) -> "Element":
         return deepcopy(self)
