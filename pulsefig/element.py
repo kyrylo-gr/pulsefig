@@ -14,7 +14,7 @@ import matplotlib
 import numpy as np
 
 from .annotate import Annotation
-from .styles import colors
+from .styles import DEFAULT_COLOR
 from .variables import UnsetParameter
 
 if TYPE_CHECKING:
@@ -238,7 +238,7 @@ class Element:
         if self.style is not None:
             style.update(self.style)
         if "color" not in style:
-            style["color"] = colors[self.y_index % len(colors)]
+            style["color"] = DEFAULT_COLOR  # colors[self.y_index % len(colors)]
         return style
 
     def attach_func(

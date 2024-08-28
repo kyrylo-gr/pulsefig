@@ -4,7 +4,7 @@ from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
 import matplotlib
 
 from .element import Element, PlotStyle
-from .styles import colors
+from .styles import DEFAULT_COLOR
 from .utils import get_start_end_time
 
 if TYPE_CHECKING:
@@ -86,7 +86,7 @@ class Line:
             time_end = self._time_end
 
         line_color = self.line_color or full_style.get(
-            "color", colors[y_index % len(colors)]
+            "color", DEFAULT_COLOR  # colors[y_index % len(colors)]
         )
         ax.plot(
             [time_start - self.text_offset, time_end],

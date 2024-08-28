@@ -33,10 +33,9 @@ Here is a simple example to get you started with `pulsefig`:
 
 ```python
 
-from pulsefig import Element, Line, LineEnsemble
-import numpy as np
 import matplotlib.pyplot as plt
 
+from pulsefig import Element, Line
 
 # Define a line with elements attached
 line1 = Line("line1").attach_elements(
@@ -56,38 +55,41 @@ fig, ax = plt.subplots(1, 1)
 # Combine the lines into an ensemble and draw
 (line1 + line2).draw(ax).config_ax(ax)
 
-plt.show()
 ```
 
 This code will generate a plot of two pulse sequences defined by the `line1` and `line2` objects. You can customize each element, its functions, and styling to create complex and detailed pulse sequence diagrams.
-![basic example](docs/images/example_1.png)
+![basic example](docs/examples/figures/example_1.svg)
 
 ### Advanced Example
 
 In the following example, we create a more complex pulse sequence involving multiple lines, Gaussian pulses, and exponential filters:
 
 ```python
+
+import matplotlib.pyplot as plt
+
+from pulsefig import Element, Line
+
 reset_line = Line("reset").attach_elements(Element(0, 5).set(xlabel="10μs"))
 flux_line = Line("flux").attach_elements(
     flux_rise := Element.ExpFilter(0, 3.75, duration=0.2)
-    .set(ylabel="Δᵩ")
+    .set(ylabel=" Δᵩ")
     .update_style(alpha=0.3, data_index=0)
     .sweep_height(start_alpha=0.1)
 )
 
-drive_line  = Line("drive").attach_elements(
+drive_line = Line("drive").attach_elements(
     drive_pi := Element.Gaussian(flux_rise, duration=1).set(subtitle="π")
 )
 readout_line = Line("readout").attach_elements(Element(drive_pi, duration=1, delay=0.5))
 
 # Combine all lines into an ensemble
-ens = drive_line  + readout_line + flux_line + reset_line
+ens = drive_line + readout_line + flux_line + reset_line
 
 # Plotting the ensemble
 fig, ax1 = plt.subplots(1, 1, figsize=(6, 4))
 ens.draw(ax1).config_ax(ax1)
-fig.suptitle("Pulse Sequence Example")
-plt.show()
+
 ```
 
 In this advanced example:
@@ -99,16 +101,19 @@ In this advanced example:
 
 This sequence is typical in many quantum computing scenarios, where different pulse shapes and sequences are used to manipulate qubits.
 
-![example_2](docs/images/example_2.png)
+![example_2](docs/examples/figures/example_2.svg)
 
 ### Custom pulses
 
 You can create a completely custom shapes with `pulsefig`:
 
 ```python
-from pulsefig import Element, Line, LineEnsemble
-import numpy as np
 import matplotlib.pyplot as plt
+import numpy as np
+
+from pulsefig import Element, Line
+
+fig, ax = plt.subplots(1, 1)
 
 # Define a line with elements attached
 line1 = Line("drive").attach_elements(
@@ -126,21 +131,17 @@ line1 = Line("drive").attach_elements(
 )
 
 # Define another line
-line2 = Line("flux").attach_elements(
-    Element(0, 2)
-    .set(alpha=0.3, marker="0", xlabel="dt", ylabel="amp")
-    .attach_func(lambda x: np.sin(x * 2 * np.pi), end=0.25)
-    .update_style(alpha=0.3, data_index=0)
-    .sweep_height(start_alpha=0.1),
-    Element(duration=4, delay=1)
+line2 = Line("g_h").attach_elements(
+    Element(1, 3)
+    .set(alpha=0.3, marker="0")
+    .set_subtitle("pi", xpos=0.3)
+    .set_ylabel("amp", xpos=0.4, ypos=0.65)
+    .set_xlabel("dt", xpos=0.3)
     .attach_func(lambda x: np.sin(x * 2 * np.pi), end=0.25)
     .attach_func(lambda x: np.exp(-((x - 0.5) ** 2) / 0.05), start=0.5, end=1)
     .update_style(alpha=0.3, data_index=0)
     .sweep_height(start_alpha=0.1),
 )
-
-# Create a figure and axis
-fig, ax = plt.subplots(1, 1)
 
 # Combine the lines into an ensemble and draw
 (line1 + line2).draw(ax).config_ax(ax)
@@ -148,7 +149,7 @@ fig, ax = plt.subplots(1, 1)
 
 This code will generate a plot of two pulse sequences defined by the `line1` and `line2` objects. You can customize each element, its functions, and styling to create complex and detailed pulse sequence diagrams.
 
-![example_3](docs/images/example_3.png)
+![example_3](docs/examples/figures/example_3.svg)
 
 ## Documentation
 
