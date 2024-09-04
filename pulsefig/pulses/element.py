@@ -13,9 +13,9 @@ from typing import (
 import matplotlib
 import numpy as np
 
-from .annotate import Annotation
-from .styles import DEFAULT_COLOR
-from .variables import UnsetParameter
+from ..annotate import Annotation
+from ..styles import DEFAULT_COLOR
+from ..variables import UnsetParameter
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -384,13 +384,20 @@ class Element:
         text: str,
         xpos: float = 0.5,
         ypos: float = 0.5,
+        start: float = 0,
+        end: float = 1,
         ha: str = "left",
+        text_size: Optional[float] = None,
         _group: str = "ylabel",
     ) -> _Elm:
         self.del_annotation_group(_group)
+
+        if text_size is None:
+            text_size = matplotlib.rcParams["legend.fontsize"]
+
         coord_line = (
-            self.y_offset,
-            self.y_offset + self.height,
+            self.y_offset + self.height * start,
+            self.y_offset + self.height * end,
             self.start + (self.end - self.start) * xpos,
         )
         coord_text = (
@@ -399,7 +406,7 @@ class Element:
         )
         self.attach_annotations(
             Annotation.vertical(*coord_line),
-            Annotation.point(*coord_text, text, ha=ha),
+            Annotation.point(*coord_text, text, ha=ha, text_size=text_size),
             group=_group,
         )
         return self
@@ -409,12 +416,22 @@ class Element:
         text: str,
         xpos: float = 0.5,
         ypos: float = 0.33,
+        start: float = 0,
+        end: float = 1,
         va: str = "bottom",
+        text_size: Optional[float] = None,
         _group: str = "xlabel",
     ) -> _Elm:
         self.del_annotation_group(_group)
 
-        coord = (self.start, self.end, self.y_offset + self.height * ypos)
+        if text_size is None:
+            text_size = matplotlib.rcParams["legend.fontsize"]
+
+        coord = (
+            self.start + (self.end - self.start) * start,
+            self.start + (self.end - self.start) * end,
+            self.y_offset + self.height * ypos,
+        )
 
         coord_text = (
             self.start + (self.end - self.start) * xpos,
@@ -423,7 +440,7 @@ class Element:
 
         self.attach_annotations(
             Annotation.horizontal(*coord),
-            Annotation.point(*coord_text, text, va=va),
+            Annotation.point(*coord_text, text, va=va, text_size=text_size),
             group=_group,
         )
         return self

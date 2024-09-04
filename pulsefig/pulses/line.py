@@ -3,9 +3,9 @@ from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
 
 import matplotlib
 
+from ..styles import DEFAULT_COLOR
+from ..utils import get_start_end_time
 from .element import Element, PlotStyle
-from .styles import DEFAULT_COLOR
-from .utils import get_start_end_time
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes

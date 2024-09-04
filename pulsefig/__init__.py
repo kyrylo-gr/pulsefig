@@ -132,5 +132,5 @@ This code will generate a plot of two pulse sequences defined by the `line1` and
 
 # flake8: noqa: F401
 from .__config__ import __version__
-from .element import Element
-from .line import Line, LineEnsemble
+from .pulses.element import Element
+from .pulses.line import Line, LineEnsemble

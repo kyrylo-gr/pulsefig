@@ -3,8 +3,8 @@ from typing import TYPE_CHECKING, Optional, Tuple, Union
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from .element import Element
-    from .line import Line, LineEnsemble
+    from .pulses.element import Element
+    from .pulses.line import Line, LineEnsemble
 
 
 def get_start_end_time(
