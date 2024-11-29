@@ -15,6 +15,8 @@ class Annotation:
     ha: str = "center"
     va: str = "bottom"
 
+    form: Literal["straight", "curve"]
+
     text_size: _TEXT_SIZE_TYPE = None
     group: Optional[str] = None
 
@@ -31,6 +33,7 @@ class Annotation:
         text_size: _TEXT_SIZE_TYPE = None,
         arrowstyle: str = "<->",
         color: Optional[str] = None,
+        form: Literal["straight", "curve"] = "straight",
     ) -> None:
         if y0 is not None and y1 is None:
             y1 = y0
@@ -53,6 +56,7 @@ class Annotation:
 
         self.text_size = text_size
         self.color = color
+        self.form = form
 
     @property
     def orientation(self) -> Literal["vertical", "horizontal", "diagonal", "point"]:

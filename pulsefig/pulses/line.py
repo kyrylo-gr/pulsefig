@@ -13,6 +13,7 @@ _LE = TypeVar("_LE", bound="LineEnsemble")
 _L = TypeVar("_L", bound="Line")
 
 DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 6)  # noqa: E731
+DEFAULT_TEXT_OFFSET = 1.0
 
 
 class Line:
@@ -22,10 +23,12 @@ class Line:
     style: Optional[PlotStyle] = None
     y_offset: float = 0.0
     y_index: int = 0
-    text_offset: float = 1.0
+    text_offset: Optional[float] = None
 
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
+    start: Optional[float] = None
+    end: Optional[float] = None
 
     def __init__(
         self,
@@ -88,6 +91,8 @@ class Line:
         line_color = self.line_color or full_style.get(
             "color", DEFAULT_COLOR  # colors[y_index % len(colors)]
         )
+        if self.text_offset is None:
+            self.text_offset = DEFAULT_TEXT_OFFSET
         ax.plot(
             [time_start - self.text_offset, time_end],
             [self.y_offset] * 2,
@@ -140,6 +145,7 @@ class LineEnsemble:
     style: Optional[PlotStyle] = None
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
+    line_text_offset: Optional[float] = None
 
     def __init__(self, *, lines: List[Line], style: Optional[PlotStyle] = None):
         self.lines = lines
@@ -193,6 +199,8 @@ class LineEnsemble:
         time_end += time_duration * 0.05
 
         for i, line in enumerate(self.lines):
+            if self.line_text_offset is not None:
+                line.text_offset = self.line_text_offset
             # y_offset = (len(self.lines) - i - 1) * 1.5
             line.draw(
                 ax,
@@ -237,3 +245,8 @@ class LineEnsemble:
         else:
             lines = ""
         return f"{self.__class__.__name__} with {len(self.lines)} lines {lines}"
+
+    def set(self: _LE, **kwargs) -> _LE:
+        for key, value in kwargs.items():
+            setattr(self, key, value)
+        return self

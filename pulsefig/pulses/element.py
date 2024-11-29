@@ -184,7 +184,10 @@ class Element:
         if isinstance(start, Element):
             start = start.end
 
-        self.start = start  # type: ignore
+        if start is not None and delay != 0:
+            self.start = start + delay
+        else:
+            self.start = start  # type: ignore
         self.delay = delay
 
         if end is None:
@@ -363,7 +366,7 @@ class Element:
         y2 = elm_to.y_offset * (self.y_offset > elm_to.y_offset) + elm_to.y_offset * (
             self.y_offset <= elm_to.y_offset
         )
-        y1 = (self.y_offset > elm_to.y_offset) * self.height * 0.6 + self.y_offset
+        y1 = (self.y_offset >= elm_to.y_offset) * self.height * 0.6 + self.y_offset
         assert self.start is not None
         assert self.end is not None
         assert elm_to.start is not None

@@ -10,7 +10,10 @@ if TYPE_CHECKING:
 def get_start_end_time(
     obj: "Union[Element, Line, LineEnsemble]",
 ) -> "Tuple[Optional[float], Optional[float]]":
-    if hasattr(obj, "start") and hasattr(obj, "end"):  # isinstance(obj, Element):
+    if (
+        getattr(obj, "start", None) is not None
+        and getattr(obj, "end", None) is not None
+    ):  # isinstance(obj, Element):
         return obj.start, obj.end  # type: ignore
     elif hasattr(obj, "elements"):  # isinstance(obj, Line):
         if not obj.elements:  # type: ignore
