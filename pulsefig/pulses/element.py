@@ -157,11 +157,6 @@ class Element:
     delay: float = 0
     height: float = 1
 
-    title: str = ""
-    subtitle: str = ""
-    xlabel: str = ""
-    ylabel: str = ""
-
     y_offset: float = UnsetParameter()  # type: ignore
     style: Optional[PlotStyle] = None
     y_index: int = 0
@@ -391,6 +386,7 @@ class Element:
         end: float = 1,
         ha: str = "left",
         text_size: Optional[float] = None,
+        color: Optional[str] = None,
         _group: str = "ylabel",
     ) -> _Elm:
         self.del_annotation_group(_group)
@@ -409,7 +405,13 @@ class Element:
         )
         self.attach_annotations(
             Annotation.vertical(*coord_line),
-            Annotation.point(*coord_text, text, ha=ha, text_size=text_size),
+            Annotation.point(
+                *coord_text,
+                text,
+                ha=ha,
+                text_size=text_size,
+                color=color,
+            ),
             group=_group,
         )
         return self
@@ -423,6 +425,7 @@ class Element:
         end: float = 1,
         va: str = "bottom",
         text_size: Optional[float] = None,
+        color: Optional[str] = None,
         _group: str = "xlabel",
     ) -> _Elm:
         self.del_annotation_group(_group)
@@ -443,7 +446,13 @@ class Element:
 
         self.attach_annotations(
             Annotation.horizontal(*coord),
-            Annotation.point(*coord_text, text, va=va, text_size=text_size),
+            Annotation.point(
+                *coord_text,
+                text,
+                va=va,
+                text_size=text_size,
+                color=color,
+            ),
             group=_group,
         )
         return self
@@ -455,6 +464,7 @@ class Element:
         ypos: float = 0.5,
         va: str = "bottom",
         text_size: Optional[float] = None,
+        color: Optional[str] = None,
         _group: str = "title",
     ) -> _Elm:
         self.del_annotation_group(_group)
@@ -467,6 +477,7 @@ class Element:
                 text,
                 va=va,
                 text_size=text_size,
+                color=color,
             ),
             group=_group,
         )
@@ -479,6 +490,8 @@ class Element:
         ypos: float = 1,
         va: str = "bottom",
         text_size: Optional[float] = None,
+        color: Optional[str] = None,
+        _group: str = "subtitle",
     ) -> _Elm:
         return self.set_title(
             text=text,
@@ -486,14 +499,15 @@ class Element:
             ypos=ypos,
             va=va,
             text_size=text_size,
-            _group="subtitle",
+            color=color,
+            _group=_group,
         )
 
     def copy(self) -> "Element":
         return deepcopy(self)
 
     def __str__(self) -> str:
-        return f"{self.__class__.__name__} : {self.name or self.title} ({self.start}, {self.end})"
+        return f"{self.__class__.__name__} : {self.name} ({self.start}, {self.end})"
 
     def __repr__(self) -> str:
         return self.__str__()
@@ -501,11 +515,10 @@ class Element:
     @classmethod
     def Gaussian(
         cls,
-        start: Optional[Union[float, "Element"]] = None,
-        end: Optional[float] = None,
+        *args,
         **kwargs,
     ) -> "Element":
-        return cls(start, end, **kwargs).attach_func(
+        return cls(*args, **kwargs).attach_func(
             lambda x: np.exp(-((x - 0.5) ** 2) / 0.1)
         )
 

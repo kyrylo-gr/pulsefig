@@ -145,7 +145,7 @@ class LineEnsemble:
     style: Optional[PlotStyle] = None
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
-    line_text_offset: Optional[float] = None
+    text_offset: Optional[float] = None
 
     def __init__(self, *, lines: List[Line], style: Optional[PlotStyle] = None):
         self.lines = lines
@@ -199,8 +199,8 @@ class LineEnsemble:
         time_end += time_duration * 0.05
 
         for i, line in enumerate(self.lines):
-            if self.line_text_offset is not None:
-                line.text_offset = self.line_text_offset
+            if self.text_offset is not None:
+                line.text_offset = self.text_offset
             # y_offset = (len(self.lines) - i - 1) * 1.5
             line.draw(
                 ax,

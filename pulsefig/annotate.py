@@ -104,6 +104,8 @@ class Annotation:
             text_kwargs = text_kwargs or {}
             if self.text_size:
                 text_kwargs["size"] = self.text_size
+            if self.color:
+                text_kwargs.setdefault("color", self.color)
 
             ax.annotate(
                 self.text,
@@ -125,9 +127,18 @@ class Annotation:
         ha="center",
         va="bottom",
         text_size: _TEXT_SIZE_TYPE = None,
+        **kwargs,
     ):
         return cls(
-            x0=start, x1=end, y0=y, y1=y, text=text, ha=ha, va=va, text_size=text_size
+            x0=start,
+            x1=end,
+            y0=y,
+            y1=y,
+            text=text,
+            ha=ha,
+            va=va,
+            text_size=text_size,
+            **kwargs,
         )
 
     @classmethod
@@ -141,9 +152,18 @@ class Annotation:
         ha="left",
         va="center",
         text_size: _TEXT_SIZE_TYPE = None,
+        **kwargs,
     ):
         return cls(
-            x0=x, x1=x, y0=start, y1=end, text=text, ha=ha, va=va, text_size=text_size
+            x0=x,
+            x1=x,
+            y0=start,
+            y1=end,
+            text=text,
+            ha=ha,
+            va=va,
+            text_size=text_size,
+            **kwargs,
         )
 
     @classmethod
@@ -156,8 +176,19 @@ class Annotation:
         ha="center",
         va="center",
         text_size: _TEXT_SIZE_TYPE = None,
+        **kwargs,
     ):
-        return cls(x0=x, x1=x, y0=y, y1=y, text=text, ha=ha, va=va, text_size=text_size)
+        return cls(
+            x0=x,
+            x1=x,
+            y0=y,
+            y1=y,
+            text=text,
+            ha=ha,
+            va=va,
+            text_size=text_size,
+            **kwargs,
+        )
 
     @classmethod
     def line(cls, x0: float, y0: float, x1: float, y1: float, **kwargs):
