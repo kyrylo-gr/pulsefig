@@ -1,4 +1,7 @@
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union
+
+from .styles import get_final_style
+from .utils import filter_none, remove_prefix_from_dict
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -12,8 +15,8 @@ class Annotation:
     y0: float
     y1: float
     text: Optional[str]
-    ha: str = "center"
-    va: str = "bottom"
+    text_style: Dict[str, Any]
+    annotation_style: Dict[str, Any]
 
     form: Literal["straight", "curve"]
 
@@ -33,7 +36,9 @@ class Annotation:
         text_size: _TEXT_SIZE_TYPE = None,
         arrowstyle: str = "<->",
         color: Optional[str] = None,
+        text_color: Optional[str] = None,
         form: Literal["straight", "curve"] = "straight",
+        **text_style,
     ) -> None:
         if y0 is not None and y1 is None:
             y1 = y0
@@ -49,14 +54,28 @@ class Annotation:
         self.y0 = y0
         self.y1 = y1
         self.text = text
-        self.va = va
-        self.ha = ha
-
-        self.arrowstyle = arrowstyle
 
         self.text_size = text_size
-        self.color = color
         self.form = form
+
+        self.text_style = filter_none(text_style)
+        self.text_style.update(
+            filter_none(
+                {
+                    "text.va": va,
+                    "text.ha": ha,
+                    "text.fontsize": text_size,
+                    "text.color": text_color or color,
+                }
+            )
+        )
+
+        self.annotation_style = filter_none(
+            {
+                "annotation.color": color,
+                "annotation.arrowprops": {"arrowstyle": arrowstyle},
+            }
+        )
 
     @property
     def orientation(self) -> Literal["vertical", "horizontal", "diagonal", "point"]:
@@ -86,10 +105,14 @@ class Annotation:
         if self.orientation == "diagonal":
             raise ValueError("Diagonal orientation does not have an end point")
 
-    def draw(self, ax: "Axes", text_kwargs: Optional[dict] = None, **kwargs):
-        kwargs.setdefault("arrowprops", {"arrowstyle": self.arrowstyle})
-        if self.color:
-            kwargs.setdefault("color", self.color)
+    def draw(
+        self,
+        ax: "Axes",
+        text_style: Optional[dict] = None,
+        annotation_style: Optional[dict] = None,
+    ):
+        text_style = get_final_style(self.text_style, text_style)
+        annotation_style = get_final_style(self.annotation_style, annotation_style)
 
         if self.orientation != "point":
             ax.annotate(
@@ -98,21 +121,14 @@ class Annotation:
                 xycoords="data",
                 xytext=(self.x1, self.y1),
                 textcoords="data",
-                **kwargs,
+                **remove_prefix_from_dict(annotation_style, "annotation."),
             )
         if self.text:
-            text_kwargs = text_kwargs or {}
-            if self.text_size:
-                text_kwargs["size"] = self.text_size
-            if self.color:
-                text_kwargs.setdefault("color", self.color)
-
-            ax.annotate(
+            ax.text(
+                (float(self.x0 + self.x1)) / 2,
+                (float(self.y0 + self.y1)) / 2,
                 self.text,
-                ((float(self.x0 + self.x1)) / 2, (float(self.y0 + self.y1)) / 2),
-                ha=self.ha,
-                va=self.va,
-                **text_kwargs,
+                **remove_prefix_from_dict(text_style, "text."),
             )
         return self
 

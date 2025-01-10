@@ -1,53 +1,49 @@
 from copy import deepcopy
-from typing import (
-    TYPE_CHECKING,
-    Callable,
-    List,
-    Optional,
-    Tuple,
-    TypedDict,
-    TypeVar,
-    Union,
-)
+from typing import TYPE_CHECKING, Callable, Optional, Tuple, TypeVar, Union
 
-import matplotlib
 import numpy as np
 
 from ..annotate import Annotation
-from ..styles import DEFAULT_COLOR
+from ..styles import (
+    _STYLE_NAMES,
+    combine_style_and_kwargs,
+    combine_styles,
+    get_final_style,
+)
+from ..utils import remove_prefix_from_dict
 from ..variables import UnsetParameter
+from .base import AnnotationBase, StyleBase
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 _Elm = TypeVar("_Elm", bound="Element")
-_Data = TypeVar("_Data", bound="FillData")
+_Data = TypeVar("_Data", bound="ElementData")
+
+LINE_PLOT_KW = [
+    "linewidth",
+    "lw",
+    "linestyle",
+    "ls",
+    "color",
+    "alpha",
+    "zorder",
+]
 
 
-class PlotStyle(TypedDict, total=False):
-    color: str
-    linestyle: str
-    linewidth: float
-    marker: str
-    markersize: float
-    markerfacecolor: str
-    markeredgewidth: float
-    markeredgecolor: str
-    alpha: float
-    zorder: int
-
-
-class FillData:
-    height: int = 1
+class ElementData(StyleBase):
+    height: float = 1
     height_points: np.ndarray
     x: np.ndarray
     _length: int = 100
-    style: Optional[PlotStyle] = None
 
     def __init__(self, height: int = 1, x: Optional[np.ndarray] = None):
         self.height = height
         self.height_points = np.ones(self._length)
+        self.height_points[0] = 0
+        self.height_points[-1] = 0
         self.x = np.linspace(0, 1, self._length) if x is None else x
+        self.style = {}
 
     def _get_right_x(
         self, x: Optional[np.ndarray], start: float, end: float
@@ -106,26 +102,11 @@ class FillData:
 
         return self
 
-    def copy(self) -> "FillData":
-        new_data = FillData(self.height, self.x)
+    def copy(self) -> "ElementData":
+        new_data = ElementData(self.height, self.x)
         new_data.height_points = self.height_points.copy()
-        new_data.style = self.style.copy() if self.style is not None else None
+        new_data.style = self.style.copy()
         return new_data
-
-    def set(self, **kwargs):
-        for key, value in kwargs.items():
-            if hasattr(self, f"set_{key}"):
-                getattr(self, f"set_{key}")(value)
-            else:
-                setattr(self, key, value)
-        return self
-
-    def update_style(self: _Data, **kwargs) -> _Data:
-        if self.style is None:
-            self.style = {}
-        kwargs = {k: v for k, v in kwargs.items() if v is not None}
-        self.style.update(kwargs)  # type: ignore
-        return self
 
     def draw(
         self: _Data,
@@ -133,24 +114,30 @@ class FillData:
         start: float,
         end: float,
         offset_y: float,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
+        height: float = 1,
     ) -> _Data:
-        if style is None:
-            style = {}
-        if self.style is not None:
-            style.update(self.style)
+        style = get_final_style(style, self.style)
+        height = height * self.height
 
-        ax.fill_between(
-            self.x * (end - start) + start,
-            self.height_points * self.height + offset_y,  # type: ignore
-            offset_y,
-            **style,
-        )
+        if style.get("fill", False):
+            ax.fill_between(
+                self.x * (end - start) + start,
+                self.height_points * height + offset_y,  # type: ignore
+                offset_y,
+                **remove_prefix_from_dict(style, "fill."),
+            )
+        if style.get("contour", False):
+            ax.plot(
+                self.x * (end - start) + start,
+                self.height_points * height + offset_y,  # type: ignore
+                **remove_prefix_from_dict(style, "contour."),
+            )
 
         return self
 
 
-class Element:
+class Element(StyleBase, AnnotationBase):
     start: float = UnsetParameter()  # type: ignore
     end: float = UnsetParameter()  # type: ignore
     duration: Optional[float] = UnsetParameter()  # type: ignore
@@ -158,10 +145,9 @@ class Element:
     height: float = 1
 
     y_offset: float = UnsetParameter()  # type: ignore
-    style: Optional[PlotStyle] = None
+    style: dict
     y_index: int = 0
 
-    annotations: List[Annotation]
     _length: int = 100
 
     def __init__(
@@ -193,17 +179,10 @@ class Element:
         self.end = end  # type: ignore
 
         self.height = height
-        self.dataset = [FillData()]
+        self.dataset = [ElementData()]
         self.name = name
         self.annotations = []
-
-    def set(self, **kwargs):
-        for key, value in kwargs.items():
-            if hasattr(self, f"set_{key}"):
-                getattr(self, f"set_{key}")(value)
-            else:
-                setattr(self, key, value)
-        return self
+        self.style = {}
 
     def _check_data_index(self, data_index: Optional[int]) -> int:
         if len(self.dataset) > 2 and data_index is None:
@@ -218,26 +197,17 @@ class Element:
 
     def update_style(
         self: _Elm,
+        style: Optional[_STYLE_NAMES | dict] = None,
         data_index: Optional[int] = None,
         **kwargs,
     ) -> _Elm:
-        if data_index is None:
-            if self.style is None:
-                self.style = {}
-            kwargs = {k: v for k, v in kwargs.items() if v is not None}
-            self.style.update(kwargs)  # type: ignore
-            return self
-        self.dataset[data_index].update_style(**kwargs)
-        return self
+        style = combine_style_and_kwargs(style, **kwargs)
 
-    def _get_style(self, style: Optional[PlotStyle] = None) -> PlotStyle:
-        if style is None:
-            style = {}
-        if self.style is not None:
-            style.update(self.style)
-        if "color" not in style:
-            style["color"] = DEFAULT_COLOR  # colors[self.y_index % len(colors)]
-        return style
+        if data_index is None:
+            self.style.update(style)
+        else:
+            self.dataset[data_index].update_style(style)
+        return self
 
     def attach_func(
         self: _Elm,
@@ -256,30 +226,17 @@ class Element:
 
     def attach_data(
         self: _Elm,
-        data: Union[np.ndarray, FillData],
+        data: Union[np.ndarray, ElementData],
         x: Optional[np.ndarray] = None,
         start: float = 0,
         end: float = 1,
         data_index: Optional[int] = None,
     ) -> _Elm:
-        if isinstance(data, FillData):
+        if isinstance(data, ElementData):
             self.dataset.append(data)
             return self
         data_index = self._check_data_index(data_index)
         self.dataset[data_index].attach_data(data, x, start, end)
-        return self
-
-    def attach_annotations(
-        self: _Elm, *annotation: Annotation, group: Optional[str] = None
-    ) -> _Elm:
-        if group is not None:
-            for a in annotation:
-                a.group = group
-        self.annotations.extend(annotation)
-        return self
-
-    def del_annotation_group(self: _Elm, group: Optional[str]) -> _Elm:
-        self.annotations = [a for a in self.annotations if a.group != group]
         return self
 
     def predraw(
@@ -305,7 +262,7 @@ class Element:
         self: _Elm,
         ax: "Axes",
         *,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
         y_offset: Optional[float] = None,
         y_index: int = 0,
     ) -> _Elm:
@@ -317,13 +274,14 @@ class Element:
             self.y_offset = y_offset
         self.y_index = y_index
 
-        style = self._get_style(style)
+        style = combine_styles(self.style, style)
 
         for data in self.dataset:
-            data.draw(ax, self.start, self.end, self.y_offset, style)
+            data.draw(
+                ax, self.start, self.end, self.y_offset, style, height=self.height
+            )
 
-        for annotation in self.annotations:
-            annotation.draw(ax)
+        self._draw_annotations(ax)
 
         return self
 
@@ -336,7 +294,7 @@ class Element:
     ) -> _Elm:
         data_index = self._check_data_index(data_index)
         data = self.dataset[0]
-        final_alpha = data.style.get("alpha", 1) if data.style is not None else 1
+        final_alpha = data.style.get("alpha", 1.0)
         start_alpha = start_alpha if start_alpha is not None else final_alpha
         for i in range(points - 1, 0, -1):
             color = start_color if start_color is not None else None
@@ -356,6 +314,7 @@ class Element:
         x_end: Optional[float] = None,
         y1: Optional[float] = None,
         y2: Optional[float] = None,
+        **kwargs,
     ) -> _Elm:
 
         y2 = elm_to.y_offset * (self.y_offset > elm_to.y_offset) + elm_to.y_offset * (
@@ -371,8 +330,8 @@ class Element:
         x_end = elm_to.start if self.end < elm_to.start else elm_to.end
 
         self.attach_annotations(
-            Annotation.line(x_end, y1, x_end, y2, color="k"),
-            Annotation.horizontal(start=x_start, end=x_end, y=y1, text=text),
+            Annotation.line(x_end, y1, x_end, y2, color="k", **kwargs),
+            Annotation.horizontal(start=x_start, end=x_end, y=y1, text=text, **kwargs),
         )
 
         return self
@@ -390,9 +349,6 @@ class Element:
         _group: str = "ylabel",
     ) -> _Elm:
         self.del_annotation_group(_group)
-
-        if text_size is None:
-            text_size = matplotlib.rcParams["legend.fontsize"]
 
         coord_line = (
             self.y_offset + self.height * start,
@@ -430,9 +386,6 @@ class Element:
     ) -> _Elm:
         self.del_annotation_group(_group)
 
-        if text_size is None:
-            text_size = matplotlib.rcParams["legend.fontsize"]
-
         coord = (
             self.start + (self.end - self.start) * start,
             self.start + (self.end - self.start) * end,
@@ -468,8 +421,7 @@ class Element:
         _group: str = "title",
     ) -> _Elm:
         self.del_annotation_group(_group)
-        if text_size is None:
-            text_size = matplotlib.rcParams["legend.fontsize"]
+
         self.attach_annotations(
             Annotation.point(
                 self.start + (self.end - self.start) * xpos,

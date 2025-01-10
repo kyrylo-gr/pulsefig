@@ -1,29 +1,25 @@
 from copy import deepcopy
 from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
 
-import matplotlib
-
-from ..styles import DEFAULT_COLOR
-from ..utils import get_start_end_time
-from .element import Element, PlotStyle
+from ..styles import combine_styles, get_final_style
+from ..utils import get_start_end_time, remove_prefix_from_dict
+from .base import AnnotationBase, StyleBase
+from .element import Element
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 _LE = TypeVar("_LE", bound="LineEnsemble")
 _L = TypeVar("_L", bound="Line")
 
+
 DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 6)  # noqa: E731
-DEFAULT_TEXT_OFFSET = 1.0
 
 
-class Line:
+class Line(StyleBase, AnnotationBase):
     name: str
     elements: List[Element]
-    line_color: Optional[str] = None
-    style: Optional[PlotStyle] = None
     y_offset: float = 0.0
     y_index: int = 0
-    text_offset: Optional[float] = None
 
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
@@ -34,20 +30,16 @@ class Line:
         self,
         name: str,
         elements: Optional[List[Element]] = None,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
     ) -> None:
         self.name = name
         self.elements = [] if elements is None else elements
-        self.style = style
+        self.style = style or {}
+        self.annotations = []
 
     def attach_elements(self: _L, *element: Element) -> _L:
         self.elements.extend(element)
         self.predraw()
-        return self
-
-    def set(self: _L, **kwargs) -> _L:
-        for key, value in kwargs.items():
-            setattr(self, key, value)
         return self
 
     def predraw(self: _L, y_offset: Optional[float] = None) -> _L:
@@ -66,14 +58,13 @@ class Line:
         self: _L,
         ax: "Axes",
         *,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
         y_offset: Optional[float] = None,
         y_index: int = 0,
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
     ) -> _L:
-        full_style = self.style or {}
-        full_style.update(style or {})
+        style = combine_styles(self.style, style)
 
         if y_offset is not None:
             self.y_offset = y_offset
@@ -88,29 +79,26 @@ class Line:
             time_start = self._time_start
             time_end = self._time_end
 
-        line_color = self.line_color or full_style.get(
-            "color", DEFAULT_COLOR  # colors[y_index % len(colors)]
-        )
-        if self.text_offset is None:
-            self.text_offset = DEFAULT_TEXT_OFFSET
+        final_style = get_final_style(self.style, style)
+        text_offset = final_style.pop("level.textoffset", 0)
+
         ax.plot(
-            [time_start - self.text_offset, time_end],
+            [time_start - text_offset, time_end],
             [self.y_offset] * 2,
-            color=line_color,
+            **remove_prefix_from_dict(final_style, "level.line."),
         )
-        ax.annotate(
+        ax.text(
+            time_start - text_offset,
+            self.y_offset,
             self.name,
-            (time_start - self.text_offset, self.y_offset),
             ha="left",
             va="bottom",
-            size=matplotlib.rcParams["figure.labelsize"],
+            **remove_prefix_from_dict(final_style, "level.text."),
         )
         for elm in self.elements:
-            elm.draw(
-                ax,
-                style=self.style,
-                y_index=y_index,
-            )
+            elm.draw(ax, style=combine_styles(self.style, style), y_index=y_index)
+
+        self._draw_annotations(ax)
 
         return self
 
@@ -121,9 +109,6 @@ class Line:
             other.lines.insert(0, self)
         return other
         # return LineEnsemble(lines=[self, other])
-
-    def copy(self) -> "Line":
-        return deepcopy(self)
 
     def __str__(self) -> str:
         return f"{self.__class__.__name__} : {self.name}"
@@ -140,16 +125,15 @@ class Line:
         )
 
 
-class LineEnsemble:
+class LineEnsemble(StyleBase, AnnotationBase):
     lines: List[Line]
-    style: Optional[PlotStyle] = None
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
-    text_offset: Optional[float] = None
 
-    def __init__(self, *, lines: List[Line], style: Optional[PlotStyle] = None):
+    def __init__(self, *, lines: List[Line], style: Optional[dict] = None):
         self.lines = lines
-        self.style = style
+        self.style = style or {}
+        self.annotations = []
 
     def attach_lines(self: _LE, *line: Line) -> _LE:
         self.lines.extend(line)
@@ -180,11 +164,11 @@ class LineEnsemble:
         self: _LE,
         ax: "Axes",
         *,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
     ) -> _LE:
-        style = (self.style or {}).update(style or {})
+        style = combine_styles(self.style, style)
         if time_start is None or time_end is None:
             if self._time_start is None or self._time_end is None:
                 self.predraw()
@@ -199,9 +183,6 @@ class LineEnsemble:
         time_end += time_duration * 0.05
 
         for i, line in enumerate(self.lines):
-            if self.text_offset is not None:
-                line.text_offset = self.text_offset
-            # y_offset = (len(self.lines) - i - 1) * 1.5
             line.draw(
                 ax,
                 style=style,
@@ -209,6 +190,8 @@ class LineEnsemble:
                 time_start=time_start,
                 time_end=time_end,
             )
+        self._draw_annotations(ax)
+
         return self
 
     def config_ax(
@@ -245,8 +228,3 @@ class LineEnsemble:
         else:
             lines = ""
         return f"{self.__class__.__name__} with {len(self.lines)} lines {lines}"
-
-    def set(self: _LE, **kwargs) -> _LE:
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-        return self

@@ -135,3 +135,4 @@ from .__config__ import __version__
 from .annotate import Annotation
 from .pulses.element import Element
 from .pulses.line import Line, LineEnsemble
+from .styles import current_style, reset_style, update_style

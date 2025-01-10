@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -73,3 +73,34 @@ def arrow_between_coordinates(
             ha=ha,
             va=va,
         )
+
+
+def filter_none(data: Optional[dict] = None, **kwargs) -> dict:
+    if data is not None:
+        kwargs.update(data)
+    return {k: v for k, v in kwargs.items() if v is not None}
+
+
+def filter_kwargs(names_: List[str], /, data: Optional[dict] = None, **kwargs):
+    if data is not None:
+        kwargs.update(data)
+    return {k: v for k, v in kwargs.items() if k in names_ and v is not None}
+
+
+def set_kwargs(obj, **kwargs):
+    for key, value in kwargs.items():
+        if hasattr(obj, f"set_{key}"):
+            getattr(obj, f"set_{key}")(value)
+        elif hasattr(obj, key):
+            setattr(obj, key, value)
+        elif hasattr(obj, "style"):
+            obj.style[key] = value
+    return obj
+
+
+def remove_prefix_from_dict(data: dict, prefix: str) -> dict:
+    # return {k[len(prefix) :]: v for k, v in data.items() if k.startswith(prefix)} | {
+    #     k: v for k, v in data.items() if not k.startswith(prefix)
+    # }
+
+    return {k[len(prefix) :]: v for k, v in data.items() if k.startswith(prefix)}
