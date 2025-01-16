@@ -1,4 +1,4 @@
-from typing import TYPE_CHECKING, Any, Dict, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Union
 
 from .styles import get_final_style
 from .utils import filter_none, remove_prefix_from_dict
@@ -7,6 +7,7 @@ if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 _TEXT_SIZE_TYPE = Optional[Union[str, float, int]]
+_TEXT_TYPE = Optional[Union[str, Callable]]
 
 
 class Annotation:
@@ -14,7 +15,7 @@ class Annotation:
     x1: float
     y0: float
     y1: float
-    text: Optional[str]
+    text: _TEXT_TYPE
     text_style: Dict[str, Any]
     annotation_style: Dict[str, Any]
 
@@ -30,7 +31,7 @@ class Annotation:
         x1: Optional[float] = None,
         y0: Optional[float] = None,
         y1: Optional[float] = None,
-        text: Optional[str] = None,
+        text: _TEXT_TYPE = None,
         va: str = "bottom",
         ha: str = "center",
         text_size: _TEXT_SIZE_TYPE = None,
@@ -124,12 +125,21 @@ class Annotation:
                 **remove_prefix_from_dict(annotation_style, "annotation."),
             )
         if self.text:
-            ax.text(
-                (float(self.x0 + self.x1)) / 2,
-                (float(self.y0 + self.y1)) / 2,
-                self.text,
-                **remove_prefix_from_dict(text_style, "text."),
-            )
+            if isinstance(self.text, str):
+                ax.text(
+                    (float(self.x0 + self.x1)) / 2,
+                    (float(self.y0 + self.y1)) / 2,
+                    self.text,
+                    **remove_prefix_from_dict(text_style, "text."),
+                )
+            else:
+                self.text(
+                    ax=ax,
+                    x0=(float(self.x0 + self.x1)) / 2,
+                    y0=(float(self.y0 + self.y1)) / 2,
+                    **remove_prefix_from_dict(text_style, "text."),
+                )
+
         return self
 
     @classmethod
@@ -138,7 +148,7 @@ class Annotation:
         start: Union[float, int],
         end: Union[float, int],
         y: Union[float, int],
-        text: Optional[str] = None,
+        text: _TEXT_TYPE = None,
         *,
         ha="center",
         va="bottom",
@@ -163,7 +173,7 @@ class Annotation:
         start: Union[float, int],
         end: Union[float, int],
         x: Union[float, int],
-        text=None,
+        text: _TEXT_TYPE = None,
         *,
         ha="left",
         va="center",
@@ -187,7 +197,7 @@ class Annotation:
         cls,
         x: Union[float, int],
         y: Union[float, int],
-        text=None,
+        text: _TEXT_TYPE = None,
         *,
         ha="center",
         va="center",

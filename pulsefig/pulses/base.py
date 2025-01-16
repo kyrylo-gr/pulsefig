@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar
+from typing import TYPE_CHECKING, Any, Dict, List, Optional, TypeVar, Union
 
 from ..annotate import Annotation
 from ..styles import _STYLE_NAMES, combine_style_and_kwargs
@@ -22,7 +22,7 @@ class StyleBase:
         return deepcopy(self)
 
     def update_style(
-        self: _S, style: Optional[_STYLE_NAMES | dict] = None, **kwargs
+        self: _S, style: Optional[Union[_STYLE_NAMES, Dict[str, Any]]] = None, **kwargs
     ) -> _S:
         self.style.update(combine_style_and_kwargs(style, **kwargs))
         return self

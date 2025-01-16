@@ -1,6 +1,6 @@
 # flake8: noqa: F401
 
-from typing import Any, Dict, Literal, Optional
+from typing import Any, Dict, Literal, Optional, Union
 
 import matplotlib
 
@@ -13,11 +13,13 @@ class StyleLink:
         self.name = name
         self.data = data
 
-    def eval(self):
+    def eval(self, data=None):
         global CURRENT_STYLE  # pylint: disable=W0602
+        if data is None:
+            data = CURRENT_STYLE
         if self.data is not None and self.name in self.data:
             return self.data[self.name]
-        return CURRENT_STYLE[self.name]
+        return data[self.name]
 
     def __repr__(self):
         return f"StyleLink({self.name})"
@@ -65,7 +67,7 @@ _STYLE_NAMES = Literal["fill", "contour"]
 
 
 def update_style(
-    *styles: Optional[_STYLE_NAMES | Dict[str, Any]], **kwargs
+    *styles: Optional[Union[_STYLE_NAMES, Dict[str, Any]]], **kwargs
 ) -> Dict[str, Any]:
     global CURRENT_STYLE  # pylint: disable=W0602
     for s in styles:
@@ -93,9 +95,9 @@ def reset_style():
     CURRENT_STYLE = DEFAULT_STYLE.copy()
 
 
-def _eval_style(val):
+def _eval_style(val, data=None):
     if isinstance(val, StyleLink):
-        return _eval_style(val.eval())
+        return _eval_style(val.eval(data=data), data)
     return val
 
 
@@ -115,14 +117,15 @@ def get_final_style(
 ) -> dict:
 
     style = CURRENT_STYLE.copy()
-    for k, v in style.items():
-        if isinstance(v, StyleLink):
-            style[k] = _eval_style(v)
-
     if style1 is not None:
         style.update(style1)
     if style2 is not None:
         style.update(style2)
+
+    for k, v in style.items():
+        if isinstance(v, StyleLink):
+            style[k] = _eval_style(v, style)
+
     return style
 
 
@@ -134,7 +137,7 @@ def combine_styles(style1, style2):
 
 
 def combine_style_and_kwargs(
-    style: Optional[_STYLE_NAMES | Dict[str, Any]] = None, **kwargs
+    style: Optional[Union[_STYLE_NAMES, Dict[str, Any]]] = None, **kwargs
 ) -> Dict[str, Any]:
     style = STYLE_MAP[style].copy() if isinstance(style, str) else (style or {})
     if kwargs:

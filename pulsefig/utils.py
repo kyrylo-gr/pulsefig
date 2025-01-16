@@ -30,15 +30,16 @@ def get_start_end_time(
         if not obj.lines:  # type: ignore
             return None, None
 
-        start, end = get_start_end_time(obj.lines[0])  # type: ignore
-        if start is None or end is None:
-            raise ValueError("Start or end time is None")
+        # start, end = get_start_end_time(obj.lines[0])  # type: ignore
+        # if start is None or end is None:
+        #     raise ValueError("Start or end time is None")
+        start, end = None, None
         for line in obj.lines:  # type: ignore
             line_start, line_end = get_start_end_time(line)
             if line_start is not None:
-                start = min(start, line_start)
+                start = min(start, line_start) if start is not None else line_start
             if line_end is not None:
-                end = max(end, line_end)
+                end = max(end, line_end) if end is not None else line_end
         return start, end
 
     raise ValueError(f"Unknown object type: {type(obj)}")
@@ -94,7 +95,9 @@ def set_kwargs(obj, **kwargs):
         elif hasattr(obj, key):
             setattr(obj, key, value)
         elif hasattr(obj, "style"):
-            obj.style[key] = value
+            obj.style[key.replace("_", ".")] = value
+        else:
+            raise AttributeError(f"Object {obj} has no attribute {key}")
     return obj
 
 

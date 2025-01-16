@@ -1,9 +1,11 @@
+import logging
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, Optional, Tuple, TypeVar, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Optional, Tuple, TypeVar, Union
 
 import numpy as np
+from matplotlib import patches
 
-from ..annotate import Annotation
+from ..annotate import _TEXT_TYPE, Annotation
 from ..styles import (
     _STYLE_NAMES,
     combine_style_and_kwargs,
@@ -17,7 +19,7 @@ from .base import AnnotationBase, StyleBase
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-_Elm = TypeVar("_Elm", bound="Element")
+_Elm = TypeVar("_Elm", bound="_Element")
 _Data = TypeVar("_Data", bound="ElementData")
 
 LINE_PLOT_KW = [
@@ -32,12 +34,12 @@ LINE_PLOT_KW = [
 
 
 class ElementData(StyleBase):
-    height: float = 1
+    height: float = 1.0
     height_points: np.ndarray
     x: np.ndarray
     _length: int = 100
 
-    def __init__(self, height: int = 1, x: Optional[np.ndarray] = None):
+    def __init__(self, height: float = 1.0, x: Optional[np.ndarray] = None):
         self.height = height
         self.height_points = np.ones(self._length)
         self.height_points[0] = 0
@@ -137,10 +139,10 @@ class ElementData(StyleBase):
         return self
 
 
-class Element(StyleBase, AnnotationBase):
+class _Element(StyleBase, AnnotationBase):
     start: float = UnsetParameter()  # type: ignore
     end: float = UnsetParameter()  # type: ignore
-    duration: Optional[float] = UnsetParameter()  # type: ignore
+    duration: float = UnsetParameter()  # type: ignore
     delay: float = 0
     height: float = 1
 
@@ -152,7 +154,7 @@ class Element(StyleBase, AnnotationBase):
 
     def __init__(
         self,
-        start: Optional[Union[float, "Element"]] = None,
+        start: Optional[Union[float, "_Element"]] = None,
         end: Optional[float] = None,
         *,
         duration: Optional[float] = None,
@@ -162,7 +164,7 @@ class Element(StyleBase, AnnotationBase):
     ):
         # if start is None:
         #     raise NotImplementedError("Start time must be specified")
-        if isinstance(start, Element):
+        if isinstance(start, _Element):
             start = start.end
 
         if start is not None and delay != 0:
@@ -197,7 +199,7 @@ class Element(StyleBase, AnnotationBase):
 
     def update_style(
         self: _Elm,
-        style: Optional[_STYLE_NAMES | dict] = None,
+        style: Optional[Union[_STYLE_NAMES, Dict[str, Any]]] = None,
         data_index: Optional[int] = None,
         **kwargs,
     ) -> _Elm:
@@ -274,11 +276,14 @@ class Element(StyleBase, AnnotationBase):
             self.y_offset = y_offset
         self.y_index = y_index
 
-        style = combine_styles(self.style, style)
-
         for data in self.dataset:
             data.draw(
-                ax, self.start, self.end, self.y_offset, style, height=self.height
+                ax,
+                start=self.start,
+                end=self.end,
+                offset_y=self.y_offset,
+                style=combine_styles(self.style, style),
+                height=self.height,
             )
 
         self._draw_annotations(ax)
@@ -291,6 +296,7 @@ class Element(StyleBase, AnnotationBase):
         data_index: Optional[int] = None,
         start_color: Optional[str] = None,
         start_alpha: Optional[float] = None,
+        final_height: float = 0.0,
     ) -> _Elm:
         data_index = self._check_data_index(data_index)
         data = self.dataset[0]
@@ -301,14 +307,14 @@ class Element(StyleBase, AnnotationBase):
             opacity = start_alpha + (final_alpha - start_alpha) * (i / points)
             self.attach_data(
                 data.copy()
-                .set(height=i / points)
+                .set(height=(i / points) * (1 - final_height) + final_height)
                 .update_style(color=color, alpha=opacity)
             )
         return self
 
     def annotation_to(
         self: _Elm,
-        elm_to: "Element",
+        elm_to: "_Element",
         text: str,
         x_start: Optional[float] = None,
         x_end: Optional[float] = None,
@@ -412,10 +418,10 @@ class Element(StyleBase, AnnotationBase):
 
     def set_title(
         self: _Elm,
-        text: str,
+        text: _TEXT_TYPE,
         xpos: float = 0.5,
         ypos: float = 0.5,
-        va: str = "bottom",
+        va: str = "center",
         text_size: Optional[float] = None,
         color: Optional[str] = None,
         _group: str = "title",
@@ -455,7 +461,7 @@ class Element(StyleBase, AnnotationBase):
             _group=_group,
         )
 
-    def copy(self) -> "Element":
+    def copy(self) -> "_Element":
         return deepcopy(self)
 
     def __str__(self) -> str:
@@ -469,7 +475,7 @@ class Element(StyleBase, AnnotationBase):
         cls,
         *args,
         **kwargs,
-    ) -> "Element":
+    ) -> "_Element":
         return cls(*args, **kwargs).attach_func(
             lambda x: np.exp(-((x - 0.5) ** 2) / 0.1)
         )
@@ -477,12 +483,12 @@ class Element(StyleBase, AnnotationBase):
     @classmethod
     def ExpFilter(
         cls,
-        start: Optional[Union[float, "Element"]] = None,
+        start: Optional[Union[float, "_Element"]] = None,
         end: Optional[float] = None,
         height: float = 1,
         filter_duration=0.1,
         **kwargs,
-    ) -> "Element":
+    ) -> "_Element":
         return (
             cls(start, end, height=height, **kwargs)
             .attach_func(
@@ -493,3 +499,129 @@ class Element(StyleBase, AnnotationBase):
                 start=1 - filter_duration,
             )
         )
+
+
+class Pulse(_Element):
+    pass
+
+
+class Element(Pulse):
+    def __init__(self, *args, **kwargs):
+        logging.warning(
+            "Element is deprecated and because general type."
+            "It will be removed in the next release. Use Pulse instead."
+        )
+        super().__init__(*args, **kwargs)
+
+
+class Gate(_Element):
+    def __init__(
+        self,
+        start: Optional[Union[float, "_Element"]] = None,
+        end: Optional[float] = None,
+        *,
+        duration: Optional[float] = None,
+        delay: float = 0,
+        height: float = 0.4,
+        name: Optional[str] = None,
+    ):
+        super().__init__(
+            start, end, duration=duration, delay=delay, height=height, name=name
+        )
+
+    def draw(
+        self: _Elm,
+        ax: "Axes",
+        *,
+        style: Optional[dict] = None,
+        y_offset: Optional[float] = None,
+        y_index: int = 0,
+    ) -> _Elm:
+        if self.start is None or self.end is None:
+            raise ValueError(
+                "Start or end time is None. Cannot draw element. Call predraw() first"
+            )
+        if y_offset is not None:
+            self.y_offset = y_offset
+        self.y_index = y_index
+
+        style = combine_styles(self.style, style)
+
+        for data in self.dataset:
+            data.draw(
+                ax,
+                self.start,
+                self.end,
+                self.y_offset,
+                style,
+                height=self.height,
+            )
+            data.draw(
+                ax,
+                self.start,
+                self.end,
+                self.y_offset,
+                style,
+                height=-self.height,
+            )
+
+        self._draw_annotations(ax)
+
+        return self
+
+    def set_title(
+        self: _Elm,
+        text: _TEXT_TYPE,
+        xpos: float = 0.5,
+        ypos: float = 0,
+        va: str = "center",
+        text_size: float | None = None,
+        color: str | None = None,
+        _group: str = "title",
+    ) -> _Elm:
+        return super().set_title(text, xpos, ypos, va, text_size, color, _group)
+
+    @classmethod
+    def Readout(
+        cls,
+        start: Optional[Union[float, "_Element"]] = None,
+        end: Optional[float] = None,
+        *,
+        duration: Optional[float] = None,
+        delay: float = 0,
+        height: float = 0.4,
+        name: Optional[str] = None,
+        color: str = "black",
+    ):
+        readout = cls(
+            start, end, duration=duration, delay=delay, height=height, name=name
+        )
+
+        def draw_measure(ax: "Axes", x0, y0, arrow_radius_ratio=1.5, **kwargs):
+            radius = (readout.end - readout.start) / 4
+            theta = np.linspace(0, np.pi, 100)
+            arc_x = x0 + radius * np.cos(theta)
+            arc_y = y0 + radius * np.sin(theta) - radius / 2
+            ax.plot(arc_x, arc_y, color=color)  # **kwargs)
+            arrow_angle = np.pi / 6
+            ax.add_patch(
+                patches.FancyArrowPatch(
+                    (x0, y0 - radius / 2),
+                    (
+                        x0 + arrow_radius_ratio * radius * np.cos(arrow_angle),
+                        y0
+                        + arrow_radius_ratio * radius * np.sin(arrow_angle)
+                        - radius / 2,
+                    ),
+                    arrowstyle="->",
+                    shrinkA=0,
+                    shrinkB=0,
+                    mutation_scale=5,
+                    color=color,
+                    # **kwargs,
+                )
+            )
+
+        readout.set_title(draw_measure)
+
+        return readout

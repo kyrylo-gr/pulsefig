@@ -3,8 +3,9 @@ from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
 
 from ..styles import combine_styles, get_final_style
 from ..utils import get_start_end_time, remove_prefix_from_dict
+from ..variables import UnsetParameter
 from .base import AnnotationBase, StyleBase
-from .element import Element
+from .element import _Element
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
@@ -17,19 +18,19 @@ DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 6)  # noqa: E731
 
 class Line(StyleBase, AnnotationBase):
     name: str
-    elements: List[Element]
-    y_offset: float = 0.0
+    elements: List[_Element]
+    y_offset: float = UnsetParameter()  # type: ignore
     y_index: int = 0
 
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
-    start: Optional[float] = None
-    end: Optional[float] = None
+    start: float = None  # UnsetParameter()  # type: ignore
+    end: float = None  # UnsetParameter()  # type: ignore
 
     def __init__(
         self,
         name: str,
-        elements: Optional[List[Element]] = None,
+        elements: Optional[List[_Element]] = None,
         style: Optional[dict] = None,
     ) -> None:
         self.name = name
@@ -37,7 +38,7 @@ class Line(StyleBase, AnnotationBase):
         self.style = style or {}
         self.annotations = []
 
-    def attach_elements(self: _L, *element: Element) -> _L:
+    def attach_elements(self: _L, *element: _Element) -> _L:
         self.elements.extend(element)
         self.predraw()
         return self
@@ -64,11 +65,11 @@ class Line(StyleBase, AnnotationBase):
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
     ) -> _L:
-        style = combine_styles(self.style, style)
-
+        self.y_index = y_index
         if y_offset is not None:
             self.y_offset = y_offset
-        self.y_index = y_index
+        # else:
+        # self.y_offset =
 
         if time_start is None or time_end is None:
             self.predraw(y_offset=self.y_offset)
@@ -82,6 +83,10 @@ class Line(StyleBase, AnnotationBase):
         final_style = get_final_style(self.style, style)
         text_offset = final_style.pop("level.textoffset", 0)
 
+        self.start = time_start - text_offset
+        self.end = time_end
+        # print(final_style)
+        # print(remove_prefix_from_dict(final_style, "level.line."))
         ax.plot(
             [time_start - text_offset, time_end],
             [self.y_offset] * 2,
@@ -153,9 +158,10 @@ class LineEnsemble(StyleBase, AnnotationBase):
             self.lines.extend(other.lines)
         return self
 
-    def predraw(self: _LE) -> _LE:
+    def predraw(self: _LE, style: Optional[dict] = None) -> _LE:
+        final_style = get_final_style(self.style, style)
         for i, line in enumerate(self.lines):
-            y_offset = (len(self.lines) - i - 1) * 1.5
+            y_offset = (len(self.lines) - i - 1) * final_style.get("level.gap", 1.5)
             line.predraw(y_offset=y_offset)
         self._time_start, self._time_end = get_start_end_time(self)
         return self
@@ -168,10 +174,9 @@ class LineEnsemble(StyleBase, AnnotationBase):
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
     ) -> _LE:
-        style = combine_styles(self.style, style)
         if time_start is None or time_end is None:
             if self._time_start is None or self._time_end is None:
-                self.predraw()
+                self.predraw(style=style)
                 if self._time_start is None or self._time_end is None:
                     raise ValueError(
                         "Start or end time is None and cannot be calculated"
@@ -185,7 +190,7 @@ class LineEnsemble(StyleBase, AnnotationBase):
         for i, line in enumerate(self.lines):
             line.draw(
                 ax,
-                style=style,
+                style=combine_styles(self.style, style),
                 y_index=i,
                 time_start=time_start,
                 time_end=time_end,
@@ -204,6 +209,9 @@ class LineEnsemble(StyleBase, AnnotationBase):
         if axis_off:
             ax.axis("off")
         if aspect is not None:
+            if isinstance(aspect, str):
+                ax.set_aspect(aspect)
+                return self
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
             xs = xlim[1] - xlim[0]
