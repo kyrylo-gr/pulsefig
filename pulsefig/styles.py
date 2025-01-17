@@ -117,10 +117,12 @@ def get_final_style(
 ) -> dict:
 
     style = CURRENT_STYLE.copy()
-    if style1 is not None:
-        style.update(style1)
-    if style2 is not None:
-        style.update(style2)
+    style = combine_styles(style, style1)
+    style = combine_styles(style, style2)
+    # if style1 is not None:
+    #     style.update(style1)
+    # if style2 is not None:
+    #     style.update(style2)
 
     for k, v in style.items():
         if isinstance(v, StyleLink):
@@ -129,10 +131,14 @@ def get_final_style(
     return style
 
 
-def combine_styles(style1, style2):
+def combine_styles(style1: dict, style2: Optional[dict] = None) -> dict:
     style = style1.copy()
     if style2 is not None:
-        style.update(style2)
+        for k, v in style2.items():
+            if isinstance(v, dict) and k in style:
+                style[k] = combine_styles(style[k], v)
+            else:
+                style[k] = style2[k]
     return style
 
 
@@ -141,7 +147,9 @@ def combine_style_and_kwargs(
 ) -> Dict[str, Any]:
     style = STYLE_MAP[style].copy() if isinstance(style, str) else (style or {})
     if kwargs:
-        style.update({k.replace("_", "."): v for k, v in kwargs.items()})
+        style = combine_styles(
+            style, {k.replace("_", "."): v for k, v in kwargs.items()}
+        )
     style = {k: v for k, v in style.items() if v is not None}
 
     return style

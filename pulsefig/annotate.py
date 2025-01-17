@@ -109,12 +109,13 @@ class Annotation:
     def draw(
         self,
         ax: "Axes",
-        text_style: Optional[dict] = None,
+        style: Optional[dict] = None,
         annotation_style: Optional[dict] = None,
     ):
-        text_style = get_final_style(self.text_style, text_style)
-        annotation_style = get_final_style(self.annotation_style, annotation_style)
+        text_style = get_final_style(style, self.text_style)
+        annotation_style = get_final_style(style, self.annotation_style)
 
+        # print(remove_prefix_from_dict(annotation_style, "annotation."))
         if self.orientation != "point":
             ax.annotate(
                 "",

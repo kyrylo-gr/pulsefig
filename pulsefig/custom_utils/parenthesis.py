@@ -50,11 +50,15 @@ def draw_repeat_between(
     lw=(1, 2),
     color="black",
     markersize=5,
-    y_center=1.5,
+    y_center=None,
+    height=None,
     point_y_offset=0.25,
-    height=1.25,
 ):
     parent_width = 0.2
+    if y_center is None:
+        y_center = max(elm1.y_offset, elm2.y_offset)
+    if height is None:
+        height = abs(elm1.y_offset - elm2.y_offset)
 
     ax.plot(
         [elm1.start - offset, elm1.start - offset],

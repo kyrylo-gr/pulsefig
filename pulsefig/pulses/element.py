@@ -286,7 +286,7 @@ class _Element(StyleBase, AnnotationBase):
                 height=self.height,
             )
 
-        self._draw_annotations(ax)
+        self._draw_annotations(ax, style=combine_styles(self.style, style))
 
         return self
 
@@ -565,7 +565,7 @@ class Gate(_Element):
                 height=-self.height,
             )
 
-        self._draw_annotations(ax)
+        self._draw_annotations(ax, style=style)
 
         return self
 
@@ -592,18 +592,19 @@ class Gate(_Element):
         height: float = 0.4,
         name: Optional[str] = None,
         color: str = "black",
+        **kwargs,
     ):
         readout = cls(
             start, end, duration=duration, delay=delay, height=height, name=name
         )
 
-        def draw_measure(ax: "Axes", x0, y0, arrow_radius_ratio=1.5, **kwargs):
+        def draw_measure(ax: "Axes", x0, y0, arrow_radius_ratio=1.5, **func_kwargs):
             radius = (readout.end - readout.start) / 4
             theta = np.linspace(0, np.pi, 100)
             arc_x = x0 + radius * np.cos(theta)
             arc_y = y0 + radius * np.sin(theta) - radius / 2
-            ax.plot(arc_x, arc_y, color=color)  # **kwargs)
             arrow_angle = np.pi / 6
+            kwargs.setdefault("mutation_scale", 5)
             ax.add_patch(
                 patches.FancyArrowPatch(
                     (x0, y0 - radius / 2),
@@ -616,11 +617,12 @@ class Gate(_Element):
                     arrowstyle="->",
                     shrinkA=0,
                     shrinkB=0,
-                    mutation_scale=5,
                     color=color,
-                    # **kwargs,
+                    **kwargs,
                 )
             )
+            kwargs.pop("mutation_scale")
+            ax.plot(arc_x, arc_y, color=color, **kwargs)
 
         readout.set_title(draw_measure)
 

@@ -80,7 +80,9 @@ class Line(StyleBase, AnnotationBase):
             time_start = self._time_start
             time_end = self._time_end
 
-        final_style = get_final_style(self.style, style)
+        style = combine_styles(self.style, style)
+
+        final_style = get_final_style(style)
         text_offset = final_style.pop("level.textoffset", 0)
 
         self.start = time_start - text_offset
@@ -101,9 +103,9 @@ class Line(StyleBase, AnnotationBase):
             **remove_prefix_from_dict(final_style, "level.text."),
         )
         for elm in self.elements:
-            elm.draw(ax, style=combine_styles(self.style, style), y_index=y_index)
+            elm.draw(ax, style=style, y_index=y_index)
 
-        self._draw_annotations(ax)
+        self._draw_annotations(ax, style=style)
 
         return self
 
@@ -186,16 +188,16 @@ class LineEnsemble(StyleBase, AnnotationBase):
         time_duration = time_end - time_start
         time_start -= time_duration * 0.05
         time_end += time_duration * 0.05
-
+        style = combine_styles(self.style, style)
         for i, line in enumerate(self.lines):
             line.draw(
                 ax,
-                style=combine_styles(self.style, style),
+                style=style,
                 y_index=i,
                 time_start=time_start,
                 time_end=time_end,
             )
-        self._draw_annotations(ax)
+        self._draw_annotations(ax, style=style)
 
         return self
 

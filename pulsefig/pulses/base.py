@@ -41,9 +41,9 @@ class AnnotationBase:
         self.annotations.extend(annotation)
         return self
 
-    def _draw_annotations(self, ax: "Axes") -> None:
+    def _draw_annotations(self, ax: "Axes", style: Optional[dict] = None) -> None:
         for a in self.annotations:
-            a.draw(ax)
+            a.draw(ax, style=style)
 
     def del_annotation_group(self: _A, group: Optional[str]) -> _A:
         self.annotations = [a for a in self.annotations if a.group != group]
