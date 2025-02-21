@@ -3,6 +3,7 @@
 from typing import Any, Dict, Literal, Optional, Union
 
 import matplotlib
+import yaml
 
 DEFAULT_COLOR = "#0050A0"
 DEFAULT_TEXT_OFFSET = 1.0
@@ -83,6 +84,12 @@ def update_style(
         CURRENT_STYLE.update({k.replace("_", "."): v for k, v in kwargs.items()})
 
     return CURRENT_STYLE
+
+
+def update_style_from_file(filename):
+    with open(str(filename), "r", encoding="utf-8") as file:
+        styles = yaml.safe_load(file)
+    update_style(**styles)
 
 
 def current_style():

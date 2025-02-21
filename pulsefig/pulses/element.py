@@ -592,6 +592,7 @@ class Gate(_Element):
         height: float = 0.4,
         name: Optional[str] = None,
         color: str = "black",
+        mutation_scale: float = 0.0,
         **kwargs,
     ):
         readout = cls(
@@ -604,24 +605,37 @@ class Gate(_Element):
             arc_x = x0 + radius * np.cos(theta)
             arc_y = y0 + radius * np.sin(theta) - radius / 2
             arrow_angle = np.pi / 6
-            kwargs.setdefault("mutation_scale", 5)
-            ax.add_patch(
-                patches.FancyArrowPatch(
-                    (x0, y0 - radius / 2),
-                    (
-                        x0 + arrow_radius_ratio * radius * np.cos(arrow_angle),
+            if mutation_scale == 0:
+                ax.plot(
+                    [x0, x0 + arrow_radius_ratio * radius * np.cos(arrow_angle)],
+                    [
+                        y0 - radius / 2,
                         y0
                         + arrow_radius_ratio * radius * np.sin(arrow_angle)
                         - radius / 2,
-                    ),
-                    arrowstyle="->",
-                    shrinkA=0,
-                    shrinkB=0,
+                    ],
                     color=color,
                     **kwargs,
                 )
-            )
-            kwargs.pop("mutation_scale")
+            else:
+                ax.add_patch(
+                    patches.FancyArrowPatch(
+                        (x0, y0 - radius / 2),
+                        (
+                            x0 + arrow_radius_ratio * radius * np.cos(arrow_angle),
+                            y0
+                            + arrow_radius_ratio * radius * np.sin(arrow_angle)
+                            - radius / 2,
+                        ),
+                        arrowstyle="->",
+                        shrinkA=0,
+                        shrinkB=0,
+                        color=color,
+                        mutation_scale=mutation_scale,
+                        **kwargs,
+                    )
+                )
+            # kwargs.pop("mutation_scale")
             ax.plot(arc_x, arc_y, color=color, **kwargs)
 
         readout.set_title(draw_measure)

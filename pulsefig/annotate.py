@@ -74,7 +74,11 @@ class Annotation:
         self.annotation_style = filter_none(
             {
                 "annotation.color": color,
-                "annotation.arrowprops": {"arrowstyle": arrowstyle},
+                "annotation.arrowprops": {
+                    "arrowstyle": arrowstyle,
+                    "shrinkA": 0,
+                    "shrinkB": 0,
+                },
             }
         )
 
@@ -115,7 +119,6 @@ class Annotation:
         text_style = get_final_style(style, self.text_style)
         annotation_style = get_final_style(style, self.annotation_style)
 
-        # print(remove_prefix_from_dict(annotation_style, "annotation."))
         if self.orientation != "point":
             ax.annotate(
                 "",
