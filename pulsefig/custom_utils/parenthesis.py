@@ -13,7 +13,14 @@ def parenthesis_coordinates(x_center, y_center, height, width, direction="left")
 
 
 def draw_parenthesis_between(
-    ax, elm1, elm2, text: str, offset=0.1, lw=1.5, color="black"
+    ax,
+    elm1,
+    elm2,
+    text: str,
+    offset=0.1,
+    lw=1.5,
+    color="black",
+    text_y_coord=2.6,
 ):
     parent_width = 0.2
     ax.plot(
@@ -38,7 +45,13 @@ def draw_parenthesis_between(
         color=color,
         lw=lw,
     )
-    ax.text(elm2.end + parent_width + offset, 2.6, text, ha="left", va="center")
+    ax.text(
+        elm2.end + parent_width + offset,
+        text_y_coord,
+        text,
+        ha="left",
+        va="center",
+    )
 
 
 def draw_repeat_between(
@@ -52,6 +65,7 @@ def draw_repeat_between(
     markersize=5,
     y_center=None,
     height=None,
+    text_y_offset=0,
     point_y_offset=0.25,
 ):
     parent_width = 0.2
@@ -59,49 +73,51 @@ def draw_repeat_between(
         y_center = max(elm1.y_offset, elm2.y_offset)
     if height is None:
         height = abs(elm1.y_offset - elm2.y_offset)
+    start = getattr(elm1, "start", elm1)
+    end = getattr(elm2, "end", elm2)
 
     ax.plot(
-        [elm1.start - offset, elm1.start - offset],
+        [start - offset, start - offset],
         [y_center - point_y_offset, y_center + point_y_offset],
         "o",
         color=color,
         markersize=markersize,
     )
     ax.plot(
-        [elm1.start - 2 * offset, elm1.start - 2 * offset],
+        [start - 2 * offset, start - 2 * offset],
         [y_center - height, y_center + height],
         color=color,
         lw=lw[0],
     )
     ax.plot(
-        [elm1.start - 3 * offset, elm1.start - 3 * offset],
+        [start - 3 * offset, start - 3 * offset],
         [y_center - height, y_center + height],
         color=color,
         lw=lw[1],
     )
     ax.plot(
-        [elm2.end + offset, elm2.end + offset],
+        [end + offset, end + offset],
         [y_center - point_y_offset, y_center + point_y_offset],
         "o",
         color=color,
         markersize=markersize,
     )
     ax.plot(
-        [elm2.end + 2 * offset, elm2.end + 2 * offset],
+        [end + 2 * offset, end + 2 * offset],
         [y_center - height, y_center + height],
         color=color,
         lw=lw[0],
     )
     ax.plot(
-        [elm2.end + 3 * offset, elm2.end + 3 * offset],
+        [end + 3 * offset, end + 3 * offset],
         [y_center - height, y_center + height],
         color=color,
         lw=lw[1],
     )
 
     ax.text(
-        elm2.end + parent_width + 3 * offset,
-        y_center + height,
+        end + parent_width + 3 * offset,
+        y_center + height + text_y_offset,
         text,
         ha="left",
         va="top",

@@ -53,9 +53,7 @@ class ElementData(StyleBase):
         if x is None:
             x = self.x
         start_index: int = np.searchsorted(x, start) if start != 0 else 0  # type: ignore
-        end_index: int = (
-            np.searchsorted(x, end, side="right") if end != 1.0 else len(x)
-        )  # type: ignore
+        end_index: int = np.searchsorted(x, end, side="right") if end != 1.0 else len(x)  # type: ignore
 
         return x[start_index:end_index], start_index, end_index
 
@@ -148,7 +146,7 @@ class _Element(StyleBase, AnnotationBase):
 
     y_offset: float = UnsetParameter()  # type: ignore
     style: dict
-    y_index: int = 0
+    # y_index: int = 0
 
     _length: int = 100
 
@@ -164,23 +162,27 @@ class _Element(StyleBase, AnnotationBase):
     ):
         # if start is None:
         #     raise NotImplementedError("Start time must be specified")
+        style = get_final_style()
+        element_unit = style.get("element.unit", 1)
+
         if isinstance(start, _Element):
-            start = start.end
+            start = start.end / element_unit
 
         if start is not None and delay != 0:
-            self.start = start + delay
-        else:
-            self.start = start  # type: ignore
-        self.delay = delay
+            start = start + delay
+
+        self.start = start * element_unit  # type: ignore
+        self.delay = delay * element_unit
 
         if end is None:
             if duration is None:
                 raise ValueError("End time or duration must be specified")
-            self.duration = duration
-            end = self.start + duration if self.start is not None else None
-        self.end = end  # type: ignore
+            self.duration = duration * element_unit
+            end = (start + duration) if start is not None else None
 
-        self.height = height
+        self.end = end * element_unit  # type: ignore
+
+        self.height = height * style.get("element.height", 1)
         self.dataset = [ElementData()]
         self.name = name
         self.annotations = []
@@ -266,7 +268,7 @@ class _Element(StyleBase, AnnotationBase):
         *,
         style: Optional[dict] = None,
         y_offset: Optional[float] = None,
-        y_index: int = 0,
+        # y_index: int = 0,
     ) -> _Elm:
         if self.start is None or self.end is None:
             raise ValueError(
@@ -274,7 +276,8 @@ class _Element(StyleBase, AnnotationBase):
             )
         if y_offset is not None:
             self.y_offset = y_offset
-        self.y_index = y_index
+        # self.y_index = y_index
+        style = combine_styles(self.style, style)
 
         for data in self.dataset:
             data.draw(
@@ -282,11 +285,11 @@ class _Element(StyleBase, AnnotationBase):
                 start=self.start,
                 end=self.end,
                 offset_y=self.y_offset,
-                style=combine_styles(self.style, style),
+                style=style,
                 height=self.height,
             )
 
-        self._draw_annotations(ax, style=combine_styles(self.style, style))
+        self._draw_annotations(ax, style=style)
 
         return self
 
@@ -322,7 +325,6 @@ class _Element(StyleBase, AnnotationBase):
         y2: Optional[float] = None,
         **kwargs,
     ) -> _Elm:
-
         y2 = elm_to.y_offset * (self.y_offset > elm_to.y_offset) + elm_to.y_offset * (
             self.y_offset <= elm_to.y_offset
         )
@@ -535,7 +537,7 @@ class Gate(_Element):
         *,
         style: Optional[dict] = None,
         y_offset: Optional[float] = None,
-        y_index: int = 0,
+        # y_index: int = 0,
     ) -> _Elm:
         if self.start is None or self.end is None:
             raise ValueError(
@@ -543,8 +545,7 @@ class Gate(_Element):
             )
         if y_offset is not None:
             self.y_offset = y_offset
-        self.y_index = y_index
-
+        # self.y_index = y_index
         style = combine_styles(self.style, style)
 
         for data in self.dataset:
