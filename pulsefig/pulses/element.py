@@ -138,6 +138,7 @@ class ElementData(StyleBase):
 
 
 class _Element(StyleBase, AnnotationBase):
+    baseline: float = 0.5
     start: float = UnsetParameter()  # type: ignore
     end: float = UnsetParameter()  # type: ignore
     duration: float = UnsetParameter()  # type: ignore
@@ -194,6 +195,14 @@ class _Element(StyleBase, AnnotationBase):
         if data_index is None:
             data_index = 0
         return data_index
+
+    @property
+    def x_center(self) -> float:
+        return (self.start + self.end) / 2
+
+    @property
+    def y_center(self) -> float:
+        return self.y_offset + self.height * self.baseline
 
     def copy_data(self: _Elm, index: int = -1) -> _Elm:
         self.attach_data(self.dataset[index].copy())
@@ -517,6 +526,8 @@ class Element(Pulse):
 
 
 class Gate(_Element):
+    baseline: float = 0
+
     def __init__(
         self,
         start: Optional[Union[float, "_Element"]] = None,
@@ -594,8 +605,15 @@ class Gate(_Element):
         name: Optional[str] = None,
         color: str = "black",
         mutation_scale: float = 0.0,
+        title_kwargs: Optional[dict] = None,
+        plot_kwargs: Optional[dict] = None,
+        subtitle: Optional[str] = None,
+        subtitle_ypos: float = -0.6,
         **kwargs,
     ):
+        title_kwargs = title_kwargs or {}
+        plot_kwargs = plot_kwargs or {}
+
         readout = cls(
             start, end, duration=duration, delay=delay, height=height, name=name
         )
@@ -616,7 +634,7 @@ class Gate(_Element):
                         - radius / 2,
                     ],
                     color=color,
-                    **kwargs,
+                    **plot_kwargs,
                 )
             else:
                 ax.add_patch(
@@ -633,12 +651,23 @@ class Gate(_Element):
                         shrinkB=0,
                         color=color,
                         mutation_scale=mutation_scale,
-                        **kwargs,
+                        **plot_kwargs,
                     )
                 )
             # kwargs.pop("mutation_scale")
-            ax.plot(arc_x, arc_y, color=color, **kwargs)
+            ax.plot(arc_x, arc_y, color=color, **plot_kwargs)
 
-        readout.set_title(draw_measure)
+        if subtitle:
+            title_kwargs["ypos"] = 0.5
+            readout.attach_annotations(
+                Annotation.point(
+                    readout.x_center,
+                    readout.y_center + readout.height * subtitle_ypos,
+                    subtitle,
+                    ha="center",
+                    va="center",
+                )
+            )
+        readout.set_title(draw_measure, **title_kwargs)
 
         return readout
