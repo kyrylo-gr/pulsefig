@@ -1,9 +1,13 @@
-from typing import TYPE_CHECKING, Literal, Optional, Union
+from typing import TYPE_CHECKING, Any, Callable, Dict, Literal, Optional, Union
+
+from .styles import get_final_style
+from .utils import filter_none, remove_prefix_from_dict
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
 _TEXT_SIZE_TYPE = Optional[Union[str, float, int]]
+_TEXT_TYPE = Optional[Union[str, Callable]]
 
 
 class Annotation:
@@ -11,12 +15,16 @@ class Annotation:
     x1: float
     y0: float
     y1: float
-    text: Optional[str]
-    ha: str = "center"
-    va: str = "bottom"
+    text: _TEXT_TYPE
+    text_style: Dict[str, Any]
+    annotation_style: Dict[str, Any]
+
+    form: Literal["straight", "curve"]
 
     text_size: _TEXT_SIZE_TYPE = None
     group: Optional[str] = None
+
+    if_: Optional[bool] = None
 
     def __init__(
         self,
@@ -25,12 +33,17 @@ class Annotation:
         x1: Optional[float] = None,
         y0: Optional[float] = None,
         y1: Optional[float] = None,
-        text: Optional[str] = None,
+        text: _TEXT_TYPE = None,
         va: str = "bottom",
         ha: str = "center",
         text_size: _TEXT_SIZE_TYPE = None,
         arrowstyle: str = "<->",
+        arrowprops: Optional[dict] = None,
         color: Optional[str] = None,
+        text_color: Optional[str] = None,
+        form: Literal["straight", "curve"] = "straight",
+        if_: Optional[bool] = None,
+        **text_style,
     ) -> None:
         if y0 is not None and y1 is None:
             y1 = y0
@@ -46,13 +59,35 @@ class Annotation:
         self.y0 = y0
         self.y1 = y1
         self.text = text
-        self.va = va
-        self.ha = ha
-
-        self.arrowstyle = arrowstyle
 
         self.text_size = text_size
-        self.color = color
+        self.form = form
+
+        self.if_ = if_
+
+        self.text_style = filter_none(text_style)
+        self.text_style.update(
+            filter_none(
+                {
+                    "text.va": va,
+                    "text.ha": ha,
+                    "text.fontsize": text_size,
+                    "text.color": text_color or color,
+                }
+            )
+        )
+
+        self.annotation_style = filter_none(
+            {
+                "annotation.color": color,
+                "annotation.arrowprops": {
+                    "arrowstyle": arrowstyle,
+                    "shrinkA": 0,
+                    "shrinkB": 0,
+                    **(arrowprops or {}),
+                },
+            }
+        )
 
     @property
     def orientation(self) -> Literal["vertical", "horizontal", "diagonal", "point"]:
@@ -82,10 +117,17 @@ class Annotation:
         if self.orientation == "diagonal":
             raise ValueError("Diagonal orientation does not have an end point")
 
-    def draw(self, ax: "Axes", text_kwargs: Optional[dict] = None, **kwargs):
-        kwargs.setdefault("arrowprops", {"arrowstyle": self.arrowstyle})
-        if self.color:
-            kwargs.setdefault("color", self.color)
+    def draw(
+        self,
+        ax: "Axes",
+        style: Optional[dict] = None,
+        annotation_style: Optional[dict] = None,
+    ):
+        if self.if_ is not None and not self.if_:
+            return
+
+        text_style = get_final_style(style, self.text_style)
+        annotation_style = get_final_style(style, self.annotation_style)
 
         if self.orientation != "point":
             ax.annotate(
@@ -94,20 +136,24 @@ class Annotation:
                 xycoords="data",
                 xytext=(self.x1, self.y1),
                 textcoords="data",
-                **kwargs,
+                **remove_prefix_from_dict(annotation_style, "annotation."),
             )
         if self.text:
-            text_kwargs = text_kwargs or {}
-            if self.text_size:
-                text_kwargs["size"] = self.text_size
+            if isinstance(self.text, str):
+                ax.text(
+                    (float(self.x0 + self.x1)) / 2,
+                    (float(self.y0 + self.y1)) / 2,
+                    self.text,
+                    **remove_prefix_from_dict(text_style, "text."),
+                )
+            else:
+                self.text(
+                    ax=ax,
+                    x0=(float(self.x0 + self.x1)) / 2,
+                    y0=(float(self.y0 + self.y1)) / 2,
+                    **remove_prefix_from_dict(text_style, "text."),
+                )
 
-            ax.annotate(
-                self.text,
-                ((float(self.x0 + self.x1)) / 2, (float(self.y0 + self.y1)) / 2),
-                ha=self.ha,
-                va=self.va,
-                **text_kwargs,
-            )
         return self
 
     @classmethod
@@ -116,14 +162,23 @@ class Annotation:
         start: Union[float, int],
         end: Union[float, int],
         y: Union[float, int],
-        text: Optional[str] = None,
+        text: _TEXT_TYPE = None,
         *,
         ha="center",
         va="bottom",
         text_size: _TEXT_SIZE_TYPE = None,
+        **kwargs,
     ):
         return cls(
-            x0=start, x1=end, y0=y, y1=y, text=text, ha=ha, va=va, text_size=text_size
+            x0=start,
+            x1=end,
+            y0=y,
+            y1=y,
+            text=text,
+            ha=ha,
+            va=va,
+            text_size=text_size,
+            **kwargs,
         )
 
     @classmethod
@@ -132,14 +187,23 @@ class Annotation:
         start: Union[float, int],
         end: Union[float, int],
         x: Union[float, int],
-        text=None,
+        text: _TEXT_TYPE = None,
         *,
         ha="left",
         va="center",
         text_size: _TEXT_SIZE_TYPE = None,
+        **kwargs,
     ):
         return cls(
-            x0=x, x1=x, y0=start, y1=end, text=text, ha=ha, va=va, text_size=text_size
+            x0=x,
+            x1=x,
+            y0=start,
+            y1=end,
+            text=text,
+            ha=ha,
+            va=va,
+            text_size=text_size,
+            **kwargs,
         )
 
     @classmethod
@@ -147,14 +211,33 @@ class Annotation:
         cls,
         x: Union[float, int],
         y: Union[float, int],
-        text=None,
+        text: _TEXT_TYPE = None,
         *,
         ha="center",
         va="center",
         text_size: _TEXT_SIZE_TYPE = None,
+        **kwargs,
     ):
-        return cls(x0=x, x1=x, y0=y, y1=y, text=text, ha=ha, va=va, text_size=text_size)
+        return cls(
+            x0=x,
+            x1=x,
+            y0=y,
+            y1=y,
+            text=text,
+            ha=ha,
+            va=va,
+            text_size=text_size,
+            **kwargs,
+        )
 
     @classmethod
-    def line(cls, x0: float, y0: float, x1: float, y1: float, **kwargs):
-        return cls(x0=x0, x1=x1, y0=y0, y1=y1, arrowstyle="-", **kwargs)
+    def line(
+        cls,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        arrowprops: Optional[dict] = None,
+        **kwargs,
+    ):
+        return cls(x0=x0, x1=x1, y0=y0, y1=y1, arrowstyle="-", arrowprops=arrowprops, **kwargs)

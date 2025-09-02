@@ -1,58 +1,55 @@
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, List, Literal, Optional, TypeVar, Union
 
-import matplotlib
-
-from .element import Element, PlotStyle
-from .styles import DEFAULT_COLOR
-from .utils import get_start_end_time
+from ..styles import combine_styles, get_final_style
+from ..utils import get_start_end_time, remove_prefix_from_dict
+from ..variables import UnsetParameter
+from .base import AnnotationBase, StyleBase
+from .element import _Element
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 _LE = TypeVar("_LE", bound="LineEnsemble")
 _L = TypeVar("_L", bound="Line")
 
+
 DEFAULT_ASPECT_RATIO = lambda x: ((x * 1) / 6)  # noqa: E731
 
 
-class Line:
+class Line(StyleBase, AnnotationBase):
     name: str
-    elements: List[Element]
-    line_color: Optional[str] = None
-    style: Optional[PlotStyle] = None
-    y_offset: float = 0.0
-    y_index: int = 0
-    text_offset: float = 1.0
+    elements: List[_Element]
+    y_offset: float = UnsetParameter()  # type: ignore
+    # y_index: int = 0
 
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
+    start: float = None  # UnsetParameter()  # type: ignore
+    end: float = None  # UnsetParameter()  # type: ignore
 
     def __init__(
         self,
         name: str,
-        elements: Optional[List[Element]] = None,
-        style: Optional[PlotStyle] = None,
+        elements: Optional[List[_Element]] = None,
+        style: Optional[dict] = None,
     ) -> None:
         self.name = name
         self.elements = [] if elements is None else elements
-        self.style = style
+        self.style = style or {}
+        self.annotations = []
 
-    def attach_elements(self: _L, *element: Element) -> _L:
+    def attach_elements(self: _L, *element: _Element) -> _L:
         self.elements.extend(element)
         self.predraw()
         return self
 
-    def set(self: _L, **kwargs) -> _L:
-        for key, value in kwargs.items():
-            setattr(self, key, value)
-        return self
-
     def predraw(self: _L, y_offset: Optional[float] = None) -> _L:
         if y_offset is not None:
+            # y_offset already in "element.height" units
             self.y_offset = y_offset
         last_end = 0
         for elm in self.elements:
-            elm.predraw(possible_start=last_end, y_offset=y_offset)
+            elm.predraw(possible_start=last_end, y_offset=self.y_offset)
             last_end = elm.end if elm.end is not None else last_end
 
         self._time_start, self._time_end = get_start_end_time(self)
@@ -63,49 +60,63 @@ class Line:
         self: _L,
         ax: "Axes",
         *,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
         y_offset: Optional[float] = None,
-        y_index: int = 0,
+        # y_index: int = 0,
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
     ) -> _L:
-        full_style = self.style or {}
-        full_style.update(style or {})
+        style = combine_styles(self.style, style)
+        final_style = get_final_style(style)
 
         if y_offset is not None:
+            # y_offset already in "element.height" units
             self.y_offset = y_offset
-        self.y_index = y_index
+        # else:
+        # self.y_offset =
 
         if time_start is None or time_end is None:
-            self.predraw(y_offset=self.y_offset)
+            self.predraw()  # y_offset=self.y_offset
             if self._time_start is None or self._time_end is None:
                 raise ValueError(
                     "Start or end time is None. Provide it or call predraw"
                 )
-            time_start = self._time_start
-            time_end = self._time_end
+            if time_start is None:
+                time_start = self._time_start
+            if time_end is None:
+                time_end = self._time_end
 
-        line_color = self.line_color or full_style.get(
-            "color", DEFAULT_COLOR  # colors[y_index % len(colors)]
-        )
+        text_offset = final_style.pop("level.text.offset", 0) if self.name else 0
+        tail = final_style.pop("level.tail", 0)
+
+        self.start = time_start - text_offset
+        self.end = time_end + tail
+        # print(final_style)
+        # print(remove_prefix_from_dict(final_style, "level.line."))
+
         ax.plot(
-            [time_start - self.text_offset, time_end],
+            [self.start, self.end],
             [self.y_offset] * 2,
-            color=line_color,
+            **remove_prefix_from_dict(final_style, "level.line."),
         )
-        ax.annotate(
-            self.name,
-            (time_start - self.text_offset, self.y_offset),
-            ha="left",
-            va="bottom",
-            size=matplotlib.rcParams["figure.labelsize"],
-        )
-        for elm in self.elements:
-            elm.draw(
-                ax,
-                style=self.style,
-                y_index=y_index,
+
+        # Add text and get its bounding box to determine length
+        if self.name:
+            ax.text(
+                time_start - text_offset,
+                self.y_offset,
+                self.name,
+                **{
+                    "ha": "left",
+                    "va": "bottom",
+                    **remove_prefix_from_dict(final_style, "level.text."),
+                },
             )
+
+        for elm in self.elements:
+            elm.draw(ax, style=final_style)  # y_index=y_index)
+
+        self._draw_annotations(ax, style=style)
 
         return self
 
@@ -117,9 +128,6 @@ class Line:
         return other
         # return LineEnsemble(lines=[self, other])
 
-    def copy(self) -> "Line":
-        return deepcopy(self)
-
     def __str__(self) -> str:
         return f"{self.__class__.__name__} : {self.name}"
 
@@ -130,20 +138,20 @@ class Line:
             elements = ""
 
         return (
-            f"{self.__class__.__name__} {self.y_index} : {self.name} "
+            f"{self.__class__.__name__} {self.y_offset} : {self.name} "
             f"with {len(self.elements)} elements {elements}"
         )
 
 
-class LineEnsemble:
+class LineEnsemble(StyleBase, AnnotationBase):
     lines: List[Line]
-    style: Optional[PlotStyle] = None
     _time_start: Optional[float] = None
     _time_end: Optional[float] = None
 
-    def __init__(self, *, lines: List[Line], style: Optional[PlotStyle] = None):
+    def __init__(self, *, lines: List[Line], style: Optional[dict] = None):
         self.lines = lines
-        self.style = style
+        self.style = style or {}
+        self.annotations = []
 
     def attach_lines(self: _LE, *line: Line) -> _LE:
         self.lines.extend(line)
@@ -163,9 +171,14 @@ class LineEnsemble:
             self.lines.extend(other.lines)
         return self
 
-    def predraw(self: _LE) -> _LE:
+    def predraw(self: _LE, style: Optional[dict] = None) -> _LE:
+        final_style = get_final_style(self.style, style)
         for i, line in enumerate(self.lines):
-            y_offset = (len(self.lines) - i - 1) * 1.5
+            y_offset = (
+                (len(self.lines) - i - 1)
+                * final_style.get("level.gap", 1.5)
+                # * final_style.get("element.height", 1)
+            )
             line.predraw(y_offset=y_offset)
         self._time_start, self._time_end = get_start_end_time(self)
         return self
@@ -174,14 +187,13 @@ class LineEnsemble:
         self: _LE,
         ax: "Axes",
         *,
-        style: Optional[PlotStyle] = None,
+        style: Optional[dict] = None,
         time_start: Optional[float] = None,
         time_end: Optional[float] = None,
     ) -> _LE:
-        style = (self.style or {}).update(style or {})
         if time_start is None or time_end is None:
             if self._time_start is None or self._time_end is None:
-                self.predraw()
+                self.predraw(style=style)
                 if self._time_start is None or self._time_end is None:
                     raise ValueError(
                         "Start or end time is None and cannot be calculated"
@@ -191,28 +203,34 @@ class LineEnsemble:
         time_duration = time_end - time_start
         time_start -= time_duration * 0.05
         time_end += time_duration * 0.05
-
-        for i, line in enumerate(self.lines):
-            # y_offset = (len(self.lines) - i - 1) * 1.5
+        style = combine_styles(self.style, style)
+        for _, line in enumerate(self.lines):
             line.draw(
                 ax,
                 style=style,
-                y_index=i,
+                # y_index=i,
                 time_start=time_start,
                 time_end=time_end,
             )
+        self._draw_annotations(ax, style=style)
+
         return self
 
     def config_ax(
         self: _LE,
         ax: "Axes",
         *,
-        aspect: Optional[Union[float, Callable[[int], float]]] = DEFAULT_ASPECT_RATIO,
+        aspect: Optional[
+            Union[float, Callable[[int], float], Literal["equal", "auto", "box"]]
+        ] = DEFAULT_ASPECT_RATIO,
         axis_off: bool = True,
     ) -> _LE:
         if axis_off:
             ax.axis("off")
         if aspect is not None:
+            if isinstance(aspect, str):
+                ax.set_aspect(aspect)
+                return self
             xlim = ax.get_xlim()
             ylim = ax.get_ylim()
             xs = xlim[1] - xlim[0]

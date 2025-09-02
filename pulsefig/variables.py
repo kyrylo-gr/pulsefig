@@ -54,86 +54,94 @@ class FloatProxy(float):
             return 0.0
         return self.post_func(value)
 
+    def _get_final_value(self):
+        value = self.link.value
+        if value is None:
+            return None
+        return self.post_func(value)
+
     def __float__(self):
         return float(self.value)
 
     def __add__(self, other):
-        value = self.link.value
+        value = self._get_final_value()
         if value is not None:
-            return float(self.post_func(value)) + other
+            return float(value) + other
         return self.__class__(self.link, lambda v: self.post_func(v) + float(other))
 
     def __radd__(self, other):
         return self + other
 
     def __sub__(self, other):
-        value = self.link.value
+        value = self._get_final_value()
         if value is not None:
-            return float(self.post_func(value)) - other
+            return float(value) - other
         return self.__class__(self.link, lambda v: self.post_func(v) - float(other))
 
     def __rsub__(self, other):
-        value = self.link.value
+        value = self._get_final_value()
         if value is not None:
-            return other - float(self.post_func(value))
+            return other - float(value)
         return self.__class__(self.link, lambda v: other - self.post_func(v))
 
     def __mul__(self, other):
-        value = self.link.value
+        value = self._get_final_value()
         if value is not None:
-            return float(self.post_func(value)) * other
+            return float(value) * other
         return self.__class__(self.link, lambda v: self.post_func(v) * float(other))
 
     def __rmul__(self, other):
         return self * other
 
     def __truediv__(self, other):
-        value = self.link.value
+        value = self._get_final_value()
         if value is not None:
-            return float(self.post_func(value)) / other
+            return float(value) / other
         return self.__class__(self.link, lambda v: self.post_func(v) / float(other))
 
     def __repr__(self) -> str:
         return f"FloatProxy {self.link} = {self.value}"
 
     def __eq__(self, other):  # type: ignore
-        value = self.link.value
+        value = self._get_final_value()
         other_value = get_value(other)
         # print("__eq__", value, other)
         if value is not None and other is not None:
             return value == other_value
+        # if hash(self) == hash(other):
+        #     return True
         return self.__class__(self.link, lambda v: self.post_func(v) == other)
 
     def __ne__(self, other):  # type: ignore
-        value = self.link.value
+        value = self._get_final_value()
         other_value = get_value(other)
         if value is not None and other is not None:
             return value != other_value
         return self.__class__(self.link, lambda v: self.post_func(v) != other)
 
     def __lt__(self, other):  # type: ignore
-        value = self.link.value
+        value = self._get_final_value()
         other_value = get_value(other)
         if value is not None and other is not None:
             return value < other_value
         return self.__class__(self.link, lambda v: self.post_func(v) < other)
 
     def __gt__(self, other):  # type: ignore
-        value = self.link.value
+        value = self._get_final_value()
         other_value = get_value(other)
         if value is not None and other is not None:
             return value > other_value
         return self.__class__(self.link, lambda v: self.post_func(v) > other)
 
     def __le__(self, other):  # type: ignore
-        value = self.link.value
+        value = self._get_final_value()
         other_value = get_value(other)
         if value is not None and other is not None:
             return value <= other_value
         return self.__class__(self.link, lambda v: self.post_func(v) <= other)
 
     def __ge__(self, other):  # type: ignore
-        value = self.link.value
+        value = self._get_final_value()
         other_value = get_value(other)
         if value is not None and other is not None:
             return value >= other_value

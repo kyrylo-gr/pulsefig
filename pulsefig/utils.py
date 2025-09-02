@@ -1,16 +1,19 @@
-from typing import TYPE_CHECKING, Optional, Tuple, Union
+from typing import TYPE_CHECKING, List, Optional, Tuple, Union
 
 if TYPE_CHECKING:
     from matplotlib.axes import Axes
 
-    from .element import Element
-    from .line import Line, LineEnsemble
+    from .pulses.element import Element
+    from .pulses.line import Line, LineEnsemble
 
 
 def get_start_end_time(
     obj: "Union[Element, Line, LineEnsemble]",
 ) -> "Tuple[Optional[float], Optional[float]]":
-    if hasattr(obj, "start") and hasattr(obj, "end"):  # isinstance(obj, Element):
+    if (
+        getattr(obj, "start", None) is not None
+        and getattr(obj, "end", None) is not None
+    ):  # isinstance(obj, Element):
         return obj.start, obj.end  # type: ignore
     elif hasattr(obj, "elements"):  # isinstance(obj, Line):
         if not obj.elements:  # type: ignore
@@ -27,15 +30,16 @@ def get_start_end_time(
         if not obj.lines:  # type: ignore
             return None, None
 
-        start, end = get_start_end_time(obj.lines[0])  # type: ignore
-        if start is None or end is None:
-            raise ValueError("Start or end time is None")
+        # start, end = get_start_end_time(obj.lines[0])  # type: ignore
+        # if start is None or end is None:
+        #     raise ValueError("Start or end time is None")
+        start, end = None, None
         for line in obj.lines:  # type: ignore
             line_start, line_end = get_start_end_time(line)
             if line_start is not None:
-                start = min(start, line_start)
+                start = min(start, line_start) if start is not None else line_start
             if line_end is not None:
-                end = max(end, line_end)
+                end = max(end, line_end) if end is not None else line_end
         return start, end
 
     raise ValueError(f"Unknown object type: {type(obj)}")
@@ -70,3 +74,36 @@ def arrow_between_coordinates(
             ha=ha,
             va=va,
         )
+
+
+def filter_none(data: Optional[dict] = None, **kwargs) -> dict:
+    if data is not None:
+        kwargs.update(data)
+    return {k: v for k, v in kwargs.items() if v is not None}
+
+
+def filter_kwargs(names_: List[str], /, data: Optional[dict] = None, **kwargs):
+    if data is not None:
+        kwargs.update(data)
+    return {k: v for k, v in kwargs.items() if k in names_ and v is not None}
+
+
+def set_kwargs(obj, **kwargs):
+    for key, value in kwargs.items():
+        if hasattr(obj, f"set_{key}"):
+            getattr(obj, f"set_{key}")(value)
+        elif hasattr(obj, key):
+            setattr(obj, key, value)
+        elif hasattr(obj, "style"):
+            obj.style[key.replace("_", ".")] = value
+        else:
+            raise AttributeError(f"Object {obj} has no attribute {key}")
+    return obj
+
+
+def remove_prefix_from_dict(data: dict, prefix: str) -> dict:
+    # return {k[len(prefix) :]: v for k, v in data.items() if k.startswith(prefix)} | {
+    #     k: v for k, v in data.items() if not k.startswith(prefix)
+    # }
+
+    return {k[len(prefix) :]: v for k, v in data.items() if k.startswith(prefix)}
