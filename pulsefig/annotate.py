@@ -24,6 +24,8 @@ class Annotation:
     text_size: _TEXT_SIZE_TYPE = None
     group: Optional[str] = None
 
+    if_: Optional[bool] = None
+
     def __init__(
         self,
         *,
@@ -36,9 +38,11 @@ class Annotation:
         ha: str = "center",
         text_size: _TEXT_SIZE_TYPE = None,
         arrowstyle: str = "<->",
+        arrowprops: Optional[dict] = None,
         color: Optional[str] = None,
         text_color: Optional[str] = None,
         form: Literal["straight", "curve"] = "straight",
+        if_: Optional[bool] = None,
         **text_style,
     ) -> None:
         if y0 is not None and y1 is None:
@@ -59,6 +63,8 @@ class Annotation:
         self.text_size = text_size
         self.form = form
 
+        self.if_ = if_
+
         self.text_style = filter_none(text_style)
         self.text_style.update(
             filter_none(
@@ -78,6 +84,7 @@ class Annotation:
                     "arrowstyle": arrowstyle,
                     "shrinkA": 0,
                     "shrinkB": 0,
+                    **(arrowprops or {}),
                 },
             }
         )
@@ -116,6 +123,9 @@ class Annotation:
         style: Optional[dict] = None,
         annotation_style: Optional[dict] = None,
     ):
+        if self.if_ is not None and not self.if_:
+            return
+
         text_style = get_final_style(style, self.text_style)
         annotation_style = get_final_style(style, self.annotation_style)
 
@@ -221,5 +231,13 @@ class Annotation:
         )
 
     @classmethod
-    def line(cls, x0: float, y0: float, x1: float, y1: float, **kwargs):
-        return cls(x0=x0, x1=x1, y0=y0, y1=y1, arrowstyle="-", **kwargs)
+    def line(
+        cls,
+        x0: float,
+        y0: float,
+        x1: float,
+        y1: float,
+        arrowprops: Optional[dict] = None,
+        **kwargs,
+    ):
+        return cls(x0=x0, x1=x1, y0=y0, y1=y1, arrowstyle="-", arrowprops=arrowprops, **kwargs)

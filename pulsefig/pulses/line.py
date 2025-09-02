@@ -1,5 +1,5 @@
 from copy import deepcopy
-from typing import TYPE_CHECKING, Callable, List, Optional, TypeVar, Union
+from typing import TYPE_CHECKING, Callable, List, Literal, Optional, TypeVar, Union
 
 from ..styles import combine_styles, get_final_style
 from ..utils import get_start_end_time, remove_prefix_from_dict
@@ -175,7 +175,8 @@ class LineEnsemble(StyleBase, AnnotationBase):
         final_style = get_final_style(self.style, style)
         for i, line in enumerate(self.lines):
             y_offset = (
-                (len(self.lines) - i - 1) * final_style.get("level.gap", 1.5)
+                (len(self.lines) - i - 1)
+                * final_style.get("level.gap", 1.5)
                 # * final_style.get("element.height", 1)
             )
             line.predraw(y_offset=y_offset)
@@ -219,7 +220,9 @@ class LineEnsemble(StyleBase, AnnotationBase):
         self: _LE,
         ax: "Axes",
         *,
-        aspect: Optional[Union[float, Callable[[int], float]]] = DEFAULT_ASPECT_RATIO,
+        aspect: Optional[
+            Union[float, Callable[[int], float], Literal["equal", "auto", "box"]]
+        ] = DEFAULT_ASPECT_RATIO,
         axis_off: bool = True,
     ) -> _LE:
         if axis_off:

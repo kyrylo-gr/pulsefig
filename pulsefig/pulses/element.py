@@ -67,9 +67,7 @@ class ElementData(StyleBase):
         x, start_index, end_index = self._get_right_x(x, start, end)
         data = func(x)
         # print(x, data)
-        return self.attach_data(
-            data, x, start, end, start_index=start_index, end_index=end_index
-        )
+        return self.attach_data(data, x, start, end, start_index=start_index, end_index=end_index)
 
     def attach_data(
         self: _Data,
@@ -280,9 +278,7 @@ class _Element(StyleBase, AnnotationBase):
         # y_index: int = 0,
     ) -> _Elm:
         if self.start is None or self.end is None:
-            raise ValueError(
-                "Start or end time is None. Cannot draw element. Call predraw() first"
-            )
+            raise ValueError("Start or end time is None. Cannot draw element. Call predraw() first")
         if y_offset is not None:
             self.y_offset = y_offset
         # self.y_index = y_index
@@ -313,14 +309,23 @@ class _Element(StyleBase, AnnotationBase):
         data_index = self._check_data_index(data_index)
         data = self.dataset[0]
         final_alpha = data.style.get("alpha", 1.0)
+        final_contour_alpha = data.style.get("contour_alpha", 1.0)
         start_alpha = start_alpha if start_alpha is not None else final_alpha
+        start_contour_alpha = start_alpha if start_alpha is not None else final_alpha
         for i in range(points - 1, 0, -1):
             color = start_color if start_color is not None else None
             opacity = start_alpha + (final_alpha - start_alpha) * (i / points)
+            contour_opacity = start_contour_alpha + (final_contour_alpha - start_contour_alpha) * (
+                i / points
+            )
             self.attach_data(
                 data.copy()
                 .set(height=(i / points) * (1 - final_height) + final_height)
-                .update_style(color=color, alpha=opacity)
+                .update_style(
+                    color=color,
+                    alpha=opacity,
+                    contour_alpha=contour_opacity,
+                )
             )
         return self
 
@@ -332,6 +337,7 @@ class _Element(StyleBase, AnnotationBase):
         x_end: Optional[float] = None,
         y1: Optional[float] = None,
         y2: Optional[float] = None,
+        arrowprops: Optional[dict] = None,
         **kwargs,
     ) -> _Elm:
         y2 = elm_to.y_offset * (self.y_offset > elm_to.y_offset) + elm_to.y_offset * (
@@ -347,8 +353,23 @@ class _Element(StyleBase, AnnotationBase):
         x_end = elm_to.start if self.end < elm_to.start else elm_to.end
 
         self.attach_annotations(
-            Annotation.line(x_end, y1, x_end, y2, color="k", **kwargs),
-            Annotation.horizontal(start=x_start, end=x_end, y=y1, text=text, **kwargs),
+            Annotation.line(
+                x_end,
+                y1,
+                x_end,
+                y2,
+                # color="k",
+                if_=(elm_to.y_offset != self.y_offset),
+                **kwargs,
+            ),
+            Annotation.horizontal(
+                start=x_start,
+                end=x_end,
+                y=y1,
+                text=text,
+                arrowprops=arrowprops,
+                **kwargs,
+            ),
         )
 
         return self
@@ -487,9 +508,7 @@ class _Element(StyleBase, AnnotationBase):
         *args,
         **kwargs,
     ) -> "_Element":
-        return cls(*args, **kwargs).attach_func(
-            lambda x: np.exp(-((x - 0.5) ** 2) / 0.1)
-        )
+        return cls(*args, **kwargs).attach_func(lambda x: np.exp(-((x - 0.5) ** 2) / 0.1))
 
     @classmethod
     def ExpFilter(
@@ -502,9 +521,7 @@ class _Element(StyleBase, AnnotationBase):
     ) -> "_Element":
         return (
             cls(start, end, height=height, **kwargs)
-            .attach_func(
-                lambda x: 1 - np.exp(-x / filter_duration**2), end=filter_duration
-            )
+            .attach_func(lambda x: 1 - np.exp(-x / filter_duration**2), end=filter_duration)
             .attach_func(
                 lambda x: np.exp(-(x - 1 + filter_duration) / filter_duration**2),
                 start=1 - filter_duration,
@@ -538,9 +555,7 @@ class Gate(_Element):
         height: float = 0.4,
         name: Optional[str] = None,
     ):
-        super().__init__(
-            start, end, duration=duration, delay=delay, height=height, name=name
-        )
+        super().__init__(start, end, duration=duration, delay=delay, height=height, name=name)
 
     def draw(
         self: _Elm,
@@ -551,9 +566,7 @@ class Gate(_Element):
         # y_index: int = 0,
     ) -> _Elm:
         if self.start is None or self.end is None:
-            raise ValueError(
-                "Start or end time is None. Cannot draw element. Call predraw() first"
-            )
+            raise ValueError("Start or end time is None. Cannot draw element. Call predraw() first")
         if y_offset is not None:
             self.y_offset = y_offset
         # self.y_index = y_index
@@ -609,28 +622,32 @@ class Gate(_Element):
         plot_kwargs: Optional[dict] = None,
         subtitle: Optional[str] = None,
         subtitle_ypos: float = -0.6,
+        aspect_ratio_x: float = 1.0,
+        aspect_ratio_y: float = 1.0,
+        readout_radius_ratio: float = 0.25,
         **kwargs,
     ):
         title_kwargs = title_kwargs or {}
         plot_kwargs = plot_kwargs or {}
 
-        readout = cls(
-            start, end, duration=duration, delay=delay, height=height, name=name
-        )
+        readout = cls(start, end, duration=duration, delay=delay, height=height, name=name)
 
         def draw_measure(ax: "Axes", x0, y0, arrow_radius_ratio=1.5, **func_kwargs):
-            radius = (readout.end - readout.start) / 4
+            radius = (readout.end - readout.start) * readout_radius_ratio
             theta = np.linspace(0, np.pi, 100)
-            arc_x = x0 + radius * np.cos(theta)
-            arc_y = y0 + radius * np.sin(theta) - radius / 2
+            arc_x = x0 + aspect_ratio_x * radius * np.cos(theta)
+            arc_y = y0 + aspect_ratio_y * radius * (np.sin(theta) - 1 / 2)
             arrow_angle = np.pi / 6
             if mutation_scale == 0:
                 ax.plot(
-                    [x0, x0 + arrow_radius_ratio * radius * np.cos(arrow_angle)],
+                    [
+                        x0,
+                        x0 + aspect_ratio_x * arrow_radius_ratio * radius * np.cos(arrow_angle),
+                    ],
                     [
                         y0 - radius / 2,
                         y0
-                        + arrow_radius_ratio * radius * np.sin(arrow_angle)
+                        + aspect_ratio_y * arrow_radius_ratio * radius * np.sin(arrow_angle)
                         - radius / 2,
                     ],
                     color=color,
@@ -641,9 +658,9 @@ class Gate(_Element):
                     patches.FancyArrowPatch(
                         (x0, y0 - radius / 2),
                         (
-                            x0 + arrow_radius_ratio * radius * np.cos(arrow_angle),
+                            x0 + aspect_ratio_x * arrow_radius_ratio * radius * np.cos(arrow_angle),
                             y0
-                            + arrow_radius_ratio * radius * np.sin(arrow_angle)
+                            + aspect_ratio_y * arrow_radius_ratio * radius * np.sin(arrow_angle)
                             - radius / 2,
                         ),
                         arrowstyle="->",
@@ -658,7 +675,7 @@ class Gate(_Element):
             ax.plot(arc_x, arc_y, color=color, **plot_kwargs)
 
         if subtitle:
-            title_kwargs["ypos"] = 0.5
+            title_kwargs.setdefault("ypos", 0.5)
             readout.attach_annotations(
                 Annotation.point(
                     readout.x_center,
